@@ -885,8 +885,8 @@
   </div>
   <div class="text-menu-row">
     <label>Scale</label>
-    <input type="range" id="textScaleSlider" min="1" max="5" step="1" value="1">
-    <input type="number" id="textScaleNum" min="1" step="1" value="1" title="Text scale in pixels per glyph pixel (type any value >= 1)">
+    <input type="range" id="textScaleSlider" min="0.5" max="5" step="0.5" value="1">
+    <input type="number" id="textScaleNum" min="0.5" step="0.5" value="1" title="Text scale in pixels per glyph pixel (type any value >= 0.5)">
   </div>
   <button type="button" id="textAdvancedToggle" class="text-menu-toggle" aria-expanded="false">
     Advanced <span id="textAdvancedArrow">&#9654;</span>
@@ -1099,6 +1099,10 @@
 
   function pushUndo() {
     dirty = true;
+    // Any programmatic edit invalidates the hover preview's snapshot: dropping
+    // it (not restoring) keeps a stale mousemove from resurrecting the old
+    // canvas state after undo/redo/center/paste/place.
+    previewSnapshot = null;
     undoStack.push(ctx.getImageData(0, 0, SIZE, SIZE));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     redoStack = [];
@@ -1204,10 +1208,14 @@
     'SandyForest_16', 'SuperTechnology_16', 'Tallpix_16', 'ThickPixels_16',
     'TinyPixie2_12', 'TinyUnicode_16', 'TripleN_16', 'Zicons_16'
   ];
+  // Per-font default scale multiplier, applied automatically when the font is
+  // picked (fonts rendered too small/large for their pixel size go here).
+  const FONT_DEFAULT_SCALE = { 'TinyPixie2_12': 0.5 };
   const TEXT_FONTS = BITMAP_FONT_FILES.map(f => ({
     name: f.replace(/_\d+$/, ''),
     family: f,
-    bitmap: '/fonts/' + f + '.fnt'
+    bitmap: '/fonts/' + f + '.fnt',
+    scale: FONT_DEFAULT_SCALE[f] || 1
   }));
 
   // ---- Bitmap (AngelCode BMFont) rendering ----
@@ -1226,7 +1234,7 @@
   function parseBMFont(text) {
     const chars = {};
     const kernings = {};
-    let lineHeight = 1, page = '';
+    let lineHeight = 1, page = '', maxGlyphExtent = 0;
     for (const line of text.split(/\r?\n/)) {
       const parts = line.trim().split(/\s+/);
       if (!parts.length) continue;
@@ -1239,14 +1247,17 @@
             if (p.startsWith('file=')) page = p.slice(6).replace(/^"|"$/g, '');
           }
           break;
-        case 'char':
-          chars[intOf(parts, 'id')] = {
+        case 'char': {
+          const g = {
             x: intOf(parts, 'x'), y: intOf(parts, 'y'),
             w: intOf(parts, 'width'), h: intOf(parts, 'height'),
             xo: intOf(parts, 'xoffset'), yo: intOf(parts, 'yoffset'),
             adv: intOf(parts, 'xadvance')
           };
+          chars[intOf(parts, 'id')] = g;
+          if (g.h + g.yo > maxGlyphExtent) maxGlyphExtent = g.h + g.yo;
           break;
+        }
         case 'kerning': {
           const first = intOf(parts, 'first'), second = intOf(parts, 'second');
           if (!kernings[first]) kernings[first] = {};
@@ -1255,7 +1266,7 @@
         }
       }
     }
-    return { lineHeight, chars, kernings, page };
+    return { lineHeight, chars, kernings, page, maxGlyphExtent: maxGlyphExtent || lineHeight };
   }
 
   // Some BMFont tools bake glyphs onto an opaque background (e.g. black ink
@@ -1329,8 +1340,13 @@
       }
       return w;
     });
-    const stripW = Math.max(1, Math.ceil(Math.max(0, ...lineAdvs)));
-    const stripH = Math.max(1, Math.ceil(lines.length * lh * spacing * scale));
+    // Size the strip to the real ink extent (glyph bottom of the last line),
+    // not the nominal line advance, so tight spacing never crops the last
+    // line; +1 absorbs sub-pixel stamp rounding.
+    const lineAdv = lh * spacing * scale;
+    const extent = (font.maxGlyphExtent || lh) * scale;
+    const stripW = Math.max(1, Math.ceil(Math.max(0, ...lineAdvs)) + 1);
+    const stripH = Math.max(1, Math.ceil((lines.length - 1) * lineAdv + extent) + 1);
     const strip = document.createElement('canvas');
     strip.width = stripW;
     strip.height = stripH;
@@ -1397,11 +1413,11 @@
     }
   }
 
-  // Current text scale: from the number field (slider covers 1-5, but the
-  // number field accepts any value >= 1).
+  // Current text scale: from the number field (slider covers 0.5-5, but the
+  // number field accepts any value >= 0.5).
   function currentTextScale() {
     const n = parseFloat(document.getElementById('textScaleNum').value);
-    return Number.isFinite(n) && n >= 1 ? n : 1;
+    return Number.isFinite(n) && n >= 0.5 ? n : 0.5;
   }
 
   // Current line spacing multiplier (1 = the font's natural line height).
@@ -2141,7 +2157,6 @@
   document.getElementById('textOkBtn').addEventListener('click', placeText);
   document.getElementById('textCancelBtn').addEventListener('click', closeTextMenu);
   document.getElementById('textInput').addEventListener('input', updateTextPreview);
-  document.getElementById('textFont').addEventListener('change', updateTextPreview);
   const textScaleSlider = document.getElementById('textScaleSlider');
   const textScaleNum = document.getElementById('textScaleNum');
   textScaleSlider.addEventListener('input', () => {
@@ -2150,8 +2165,16 @@
   });
   textScaleNum.addEventListener('input', () => {
     const v = parseFloat(textScaleNum.value);
-    textScaleNum.value = Number.isFinite(v) && v >= 1 ? String(v) : '1';
-    textScaleSlider.value = Math.max(1, Math.min(5, parseFloat(textScaleNum.value)));
+    textScaleNum.value = Number.isFinite(v) && v >= 0.5 ? String(v) : '0.5';
+    textScaleSlider.value = String(Math.max(0.5, Math.min(5, parseFloat(textScaleNum.value))));
+    updateTextPreview();
+  });
+  document.getElementById('textFont').addEventListener('change', () => {
+    const font = TEXT_FONTS.find(f => f.family === document.getElementById('textFont').value);
+    if (font && font.scale) {
+      textScaleNum.value = String(font.scale);
+      textScaleSlider.value = String(Math.max(0.5, Math.min(5, font.scale)));
+    }
     updateTextPreview();
   });
   const textSpacingSlider = document.getElementById('textSpacingSlider');
@@ -2350,6 +2373,7 @@
 
   document.getElementById('undoBtn').addEventListener('click', () => {
     if (undoStack.length === 0) return;
+    previewSnapshot = null;
     redoStack.push(ctx.getImageData(0, 0, SIZE, SIZE));
     if (redoStack.length > MAX_UNDO) redoStack.shift();
     ctx.putImageData(undoStack.pop(), 0, 0);
@@ -2361,6 +2385,7 @@
 
   document.getElementById('redoBtn').addEventListener('click', () => {
     if (redoStack.length === 0) return;
+    previewSnapshot = null;
     undoStack.push(ctx.getImageData(0, 0, SIZE, SIZE));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     ctx.putImageData(redoStack.pop(), 0, 0);
