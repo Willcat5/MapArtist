@@ -1,0 +1,19 @@
+name: MapArtist
+version: '${version}'
+
+main: io.github.willits.mapArtist.MapArtist
+api-version: '1.21'
+
+authors: [ wildcat ]
+
+commands:
+  mapartist:
+    description: MapArtist commands
+    usage: /mapartist <give|draw>
+    aliases: [ ma ]
+    permission: mapartist.use
+
+permissions:
+  mapartist.use:
+    description: Allows using MapArtist
+    default: true

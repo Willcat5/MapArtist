@@ -1,0 +1,20 @@
+# Public-facing address shown to players in the drawing link.
+host: localhost
+
+# Port the drawing web server listens on. Must be reachable from the browser.
+port: 8080
+
+# How long a drawing session link stays valid, in seconds.
+# Default is 14 days (1209600).
+token-ttl-seconds: 1209600
+
+# How long autosaved drafts are kept on disk before being swept, in days.
+draft-retention-days: 21
+
+# Hide the item frame border when a custom MapArtist map is placed in it.
+# The frame becomes visible again when the map is swapped out or broken out.
+invisible-item-frames: true
+
+# Disable cartography tables. The plugin replaces map making, and vanilla map
+# locking/expansion could break drawing maps.
+disable-cartography-table: true

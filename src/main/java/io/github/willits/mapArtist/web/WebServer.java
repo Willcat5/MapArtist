@@ -1,0 +1,557 @@
+package io.github.willits.mapArtist.web;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+import io.github.willits.mapArtist.DrawingStore;
+import io.github.willits.mapArtist.TokenManager;
+import io.github.willits.mapArtist.MapArtist;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.MapMeta;
+import org.bukkit.map.MapPalette;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.logging.Logger;
+
+public final class WebServer {
+
+    private static final String PALETTE_PLACEHOLDER = "/*__MAP_PALETTE__*/[]";
+
+    private final MapArtist plugin;
+    private final Logger logger;
+    private final int port;
+    private final String paletteJson;
+    private HttpServer server;
+    private ExecutorService executor;
+
+    public WebServer(MapArtist plugin, int port) {
+        this.plugin = plugin;
+        this.logger = plugin.getLogger();
+        this.port = port;
+        this.paletteJson = buildPaletteJson();
+    }
+
+    public void start() throws IOException {
+        server = HttpServer.create(new InetSocketAddress(port), 0);
+        server.createContext("/health", this::handleHealth);
+        server.createContext("/draw", this::handleDraw);
+        server.createContext("/base", this::handleBase);
+        server.createContext("/submit", this::handleSubmit);
+        server.createContext("/export", this::handleExport);
+        server.createContext("/import", this::handleImport);
+        server.createContext("/draft", this::handleDraft);
+        server.createContext("/img/", this::handleImage);
+        server.createContext("/fonts/", this::handleFont);
+        server.createContext("/", this::handleRoot);
+        executor = Executors.newCachedThreadPool();
+        server.setExecutor(executor);
+        server.start();
+        logger.info("Web server listening on port " + port);
+    }
+
+    public void stop() {
+        if (server != null) {
+            server.stop(0);
+            server = null;
+        }
+        if (executor != null) {
+            executor.shutdown();
+            executor = null;
+        }
+    }
+
+    private void handleRoot(HttpExchange exchange) throws IOException {
+        byte[] body = "MapArtist web server is running.".getBytes(StandardCharsets.UTF_8);
+        respond(exchange, 200, "text/plain; charset=utf-8", body);
+    }
+
+    private void handleImage(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        if (!path.startsWith("/img/")) {
+            respond(exchange, 400, "text/plain; charset=utf-8", "Bad request".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
+        String rel = path.substring("/img/".length());
+        if (rel.isEmpty() || rel.contains("..") || !rel.matches("[\\w./-]+")) {
+            respond(exchange, 400, "text/plain; charset=utf-8", "Bad request".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
+        byte[] body;
+        try (InputStream in = WebServer.class.getResourceAsStream("/web/" + rel)) {
+            if (in == null) {
+                respond(exchange, 404, "text/plain; charset=utf-8", "Not found".getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            body = in.readAllBytes();
+        }
+        String contentType = rel.endsWith(".svg") ? "image/svg+xml" : "image/png";
+        respond(exchange, 200, contentType, body);
+    }
+
+    private void handleFont(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        if (!path.startsWith("/fonts/")) {
+            respond(exchange, 400, "text/plain; charset=utf-8", "Bad request".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
+        String rel = path.substring("/fonts/".length());
+        if (rel.isEmpty() || rel.contains("..") || !rel.matches("[\\w.-]+")) {
+            respond(exchange, 400, "text/plain; charset=utf-8", "Bad request".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
+        byte[] body;
+        try (InputStream in = WebServer.class.getResourceAsStream("/web/fonts/" + rel)) {
+            if (in == null) {
+                respond(exchange, 404, "text/plain; charset=utf-8", "Not found".getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            body = in.readAllBytes();
+        }
+        String contentType = rel.endsWith(".woff2") ? "font/woff2"
+                : rel.endsWith(".woff") ? "font/woff"
+                : rel.endsWith(".otf") ? "font/otf"
+                : rel.endsWith(".png") ? "image/png"
+                : rel.endsWith(".fnt") ? "text/plain; charset=utf-8"
+                : "font/ttf";
+        respond(exchange, 200, contentType, body);
+    }
+
+    private void handleHealth(HttpExchange exchange) throws IOException {
+        byte[] body = "{\"status\":\"ok\"}".getBytes(StandardCharsets.UTF_8);
+        respond(exchange, 200, "application/json; charset=utf-8", body);
+    }
+
+    private void handleDraw(HttpExchange exchange) throws IOException {
+        byte[] body;
+        try (InputStream in = WebServer.class.getResourceAsStream("/web/draw.html")) {
+            if (in == null) {
+                respond(exchange, 500, "text/plain; charset=utf-8",
+                        "draw.html not found in plugin jar".getBytes(StandardCharsets.UTF_8));
+                return;
+            }
+            String html = new String(in.readAllBytes(), StandardCharsets.UTF_8)
+                    .replace(PALETTE_PLACEHOLDER, paletteJson);
+            body = html.getBytes(StandardCharsets.UTF_8);
+        }
+        respond(exchange, 200, "text/html; charset=utf-8", body);
+    }
+
+    private void handleBase(HttpExchange exchange) throws IOException {
+        try {
+            String token = queryParam(exchange, "token");
+            if (token == null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing token\"}");
+                return;
+            }
+            TokenManager.Session session = plugin.getTokenManager().peek(token);
+            if (session == null) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+            DrawingStore store = plugin.getDrawingStore();
+            int mapId = session.mapId();
+            TokenManager tokenManager = plugin.getTokenManager();
+
+            byte[][] base = store.getBase(mapId);
+            byte[][] drawing = store.get(mapId);
+
+            if (base == null && drawing == null) {
+                tokenManager.setShown(token, null);
+                if (!store.isBaseCaptured(mapId)) {
+                    respondJson(exchange, 200, "{\"captured\":false}");
+                } else {
+                    respondJson(exchange, 200, "{\"captured\":true,\"base\":null}");
+                }
+                return;
+            }
+
+            byte[][] composite = merge(base, drawing);
+            boolean hasContent = false;
+            outer:
+            for (byte[] row : composite) {
+                for (byte p : row) {
+                    if ((p & 0xFF) != 0) {
+                        hasContent = true;
+                        break outer;
+                    }
+                }
+            }
+            if (!hasContent) {
+                tokenManager.setShown(token, null);
+                respondJson(exchange, 200, "{\"captured\":true,\"base\":null}");
+                return;
+            }
+            tokenManager.setShown(token, composite);
+            byte[] flat = new byte[128 * 128];
+            for (int y = 0; y < 128; y++) {
+                System.arraycopy(composite[y], 0, flat, y * 128, 128);
+            }
+            String encoded = Base64.getEncoder().encodeToString(flat);
+            respondJson(exchange, 200, "{\"captured\":true,\"base\":\"" + encoded + "\"}");
+        } catch (Exception e) {
+            logger.warning("Base fetch failed: " + e.getMessage());
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request\"}");
+        }
+    }
+
+    private static byte[][] merge(byte[][] base, byte[][] drawing) {
+        byte[][] out = new byte[128][128];
+        for (int y = 0; y < 128; y++) {
+            for (int x = 0; x < 128; x++) {
+                byte p = 0;
+                if (drawing != null && (drawing[y][x] & 0xFF) != 0) {
+                    p = drawing[y][x];
+                } else if (base != null) {
+                    p = base[y][x];
+                }
+                out[y][x] = p;
+            }
+        }
+        return out;
+    }
+
+    private static byte[][] mergeEdits(byte[][] submitted, byte[][] shown, byte[][] oldStrokes) {
+        byte[][] out = new byte[128][128];
+        for (int y = 0; y < 128; y++) {
+            for (int x = 0; x < 128; x++) {
+                byte sub = submitted[y][x];
+                if (sub == 0) {
+                    out[y][x] = 0;
+                    continue;
+                }
+                byte sh = (shown == null) ? 0 : shown[y][x];
+                if (sub == sh) {
+                    out[y][x] = (oldStrokes == null) ? 0 : oldStrokes[y][x];
+                } else {
+                    out[y][x] = sub;
+                }
+            }
+        }
+        return out;
+    }
+
+    private void handleSubmit(HttpExchange exchange) throws IOException {
+        try {
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                respondJson(exchange, 405, "{\"status\":\"error\",\"message\":\"Method not allowed\"}");
+                return;
+            }
+            String token = queryParam(exchange, "token");
+            if (token == null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing token\"}");
+                return;
+            }
+            TokenManager tokenManager = plugin.getTokenManager();
+            byte[][] shown = tokenManager.getShown(token);
+            TokenManager.Session session = tokenManager.peek(token);
+            if (session == null) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+
+            int mapId = session.mapId();
+            if (!isHoldingMap(session.player(), mapId)) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"You must be holding the map in your hand to submit changes\"}");
+                return;
+            }
+
+            session = tokenManager.consume(token);
+            if (session == null) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Session expired\"}");
+                return;
+            }
+
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            JsonObject root = JsonParser.parseString(body).getAsJsonObject();
+            String imageData = root.get("image").getAsString();
+            byte[] png = Base64.getDecoder().decode(imageData);
+
+            BufferedImage image;
+            try (InputStream in = new ByteArrayInputStream(png)) {
+                image = javax.imageio.ImageIO.read(in);
+            }
+            if (image == null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Not a valid image\"}");
+                return;
+            }
+
+            DrawingStore store = plugin.getDrawingStore();
+            byte[][] submitted = toPaletteBytes(image);
+            byte[][] oldStrokes = store.get(session.mapId());
+            byte[][] strokes = mergeEdits(submitted, shown, oldStrokes);
+
+            int colored = 0;
+            for (byte[] row : strokes) {
+                for (byte p : row) {
+                    if ((p & 0xFF) != 0) colored++;
+                }
+            }
+            if (colored == 0) {
+                store.remove(session.mapId());
+                plugin.deleteDrawing(session.mapId());
+            } else {
+                store.put(session.mapId(), strokes);
+                plugin.saveDrawing(session.mapId(), strokes);
+            }
+            plugin.attachRenderer(session.mapId());
+            plugin.deleteDraft(session.player(), session.mapId());
+
+            logger.info("Saved drawing for map #" + session.mapId()
+                    + " (" + colored + " colored pixels)");
+
+            respondJson(exchange, 200, "{\"status\":\"ok\"}");
+        } catch (Exception e) {
+            logger.warning("Submit failed: " + e.getMessage());
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request: " + e.getMessage() + "\"}");
+        }
+    }
+
+    private void handleExport(HttpExchange exchange) throws IOException {
+        try {
+            String token = queryParam(exchange, "token");
+            if (token == null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing token\"}");
+                return;
+            }
+            TokenManager.Session session = plugin.getTokenManager().peek(token);
+            if (session == null) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+            byte[][] pixels = plugin.getDrawingStore().get(session.mapId());
+            if (pixels == null) {
+                respondJson(exchange, 404, "{\"status\":\"error\",\"message\":\"No drawing saved for this map. Upload it to the server first.\"}");
+                return;
+            }
+            byte[] flat = new byte[128 * 128];
+            for (int y = 0; y < 128; y++) {
+                System.arraycopy(pixels[y], 0, flat, y * 128, 128);
+            }
+            exchange.getResponseHeaders().set("Content-Disposition",
+                    "attachment; filename=\"map-" + session.mapId() + ".dat\"");
+            respond(exchange, 200, "application/octet-stream", flat);
+        } catch (Exception e) {
+            logger.warning("Export failed: " + e.getMessage());
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request\"}");
+        }
+    }
+
+    private void handleImport(HttpExchange exchange) throws IOException {
+        try {
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                respondJson(exchange, 405, "{\"status\":\"error\",\"message\":\"Method not allowed\"}");
+                return;
+            }
+            String token = queryParam(exchange, "token");
+            if (token == null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing token\"}");
+                return;
+            }
+            TokenManager tokenManager = plugin.getTokenManager();
+            TokenManager.Session session = tokenManager.peek(token);
+            if (session == null) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+            int mapId = session.mapId();
+
+            byte[] flat = exchange.getRequestBody().readAllBytes();
+            if (flat.length != 128 * 128) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Invalid .dat file: expected "
+                        + (128 * 128) + " bytes, got " + flat.length + "\"}");
+                return;
+            }
+
+            byte[][] pixels = new byte[128][128];
+            for (int y = 0; y < 128; y++) {
+                System.arraycopy(flat, y * 128, pixels[y], 0, 128);
+            }
+
+            DrawingStore store = plugin.getDrawingStore();
+            store.put(mapId, pixels);
+            plugin.saveDrawing(mapId, pixels);
+            plugin.attachRenderer(mapId);
+            plugin.deleteDraft(session.player(), mapId);
+
+            byte[][] composite = merge(store.getBase(mapId), pixels);
+            tokenManager.setShown(token, hasColor(composite) ? composite : null);
+
+            logger.info("Imported drawing for map #" + mapId);
+
+            respondJson(exchange, 200, "{\"status\":\"ok\"}");
+        } catch (Exception e) {
+            logger.warning("Import failed: " + e.getMessage());
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request: " + e.getMessage() + "\"}");
+        }
+    }
+
+    private void handleDraft(HttpExchange exchange) throws IOException {
+        try {
+            String token = queryParam(exchange, "token");
+            if (token == null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing token\"}");
+                return;
+            }
+            TokenManager.Session session = plugin.getTokenManager().peek(token);
+            if (session == null) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+            UUID player = session.player();
+            int mapId = session.mapId();
+
+            switch (exchange.getRequestMethod()) {
+                case "GET" -> {
+                    byte[] flat = plugin.loadDraft(player, mapId);
+                    if (flat == null) {
+                        respondJson(exchange, 200, "{\"exists\":false}");
+                        return;
+                    }
+                    String encoded = Base64.getEncoder().encodeToString(flat);
+                    respondJson(exchange, 200, "{\"exists\":true,\"timestamp\":"
+                            + plugin.draftLastModified(player, mapId)
+                            + ",\"base\":\"" + encoded + "\"}");
+                }
+                case "POST" -> {
+                    String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    JsonObject root = JsonParser.parseString(body).getAsJsonObject();
+                    String imageData = root.get("image").getAsString();
+                    byte[] png = Base64.getDecoder().decode(imageData);
+                    BufferedImage image;
+                    try (InputStream in = new ByteArrayInputStream(png)) {
+                        image = javax.imageio.ImageIO.read(in);
+                    }
+                    if (image == null) {
+                        respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Not a valid image\"}");
+                        return;
+                    }
+                    byte[][] pixels = toPaletteBytes(image);
+                    byte[] flat = new byte[128 * 128];
+                    for (int y = 0; y < 128; y++) {
+                        System.arraycopy(pixels[y], 0, flat, y * 128, 128);
+                    }
+                    plugin.saveDraft(player, mapId, flat);
+                    respondJson(exchange, 200, "{\"status\":\"ok\"}");
+                }
+                case "DELETE" -> {
+                    plugin.deleteDraft(player, mapId);
+                    respondJson(exchange, 200, "{\"status\":\"ok\"}");
+                }
+                default -> respondJson(exchange, 405, "{\"status\":\"error\",\"message\":\"Method not allowed\"}");
+            }
+        } catch (Exception e) {
+            logger.warning("Draft request failed: " + e.getMessage());
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request\"}");
+        }
+    }
+
+    private static boolean hasColor(byte[][] pixels) {
+        for (byte[] row : pixels) {
+            for (byte p : row) {
+                if ((p & 0xFF) != 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isHoldingMap(UUID playerId, int mapId) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) {
+            return false;
+        }
+        return holdsMap(player.getInventory().getItemInMainHand(), mapId)
+                || holdsMap(player.getInventory().getItemInOffHand(), mapId);
+    }
+
+    private static boolean holdsMap(ItemStack item, int mapId) {
+        if (item == null || item.getType() != Material.FILLED_MAP) {
+            return false;
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta instanceof MapMeta mapMeta) {
+            return mapMeta.getMapId() == mapId;
+        }
+        return false;
+    }
+
+    private static byte[][] toPaletteBytes(BufferedImage image) {
+        BufferedImage scaled = image;
+        if (image.getWidth() != 128 || image.getHeight() != 128) {
+            scaled = new BufferedImage(128, 128, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = scaled.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+            g.drawImage(image, 0, 0, 128, 128, null);
+            g.dispose();
+        }
+        byte[][] pixels = new byte[128][128];
+        for (int y = 0; y < 128; y++) {
+            for (int x = 0; x < 128; x++) {
+                int argb = scaled.getRGB(x, y);
+                pixels[y][x] = MapPalette.matchColor(new Color(argb, true));
+            }
+        }
+        return pixels;
+    }
+
+    private static String queryParam(HttpExchange exchange, String name) {
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null) {
+            return null;
+        }
+        for (String part : query.split("&")) {
+            int eq = part.indexOf('=');
+            if (eq > 0 && part.substring(0, eq).equals(name)) {
+                return part.substring(eq + 1);
+            }
+        }
+        return null;
+    }
+
+    private void respondJson(HttpExchange exchange, int status, String json) throws IOException {
+        respond(exchange, status, "application/json; charset=utf-8", json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String buildPaletteJson() {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 4; i < 248; i++) {
+            if (i > 4) {
+                sb.append(',');
+            }
+            sb.append("{\"i\":").append(i)
+                    .append(",\"c\":\"").append(toHex(MapPalette.getColor((byte) i))).append("\"}");
+        }
+        return sb.append(']').toString();
+    }
+
+    private static String toHex(Color color) {
+        return String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
+    }
+
+    private void respond(HttpExchange exchange, int status, String contentType, byte[] body) throws IOException {
+        exchange.getResponseHeaders().set("Content-Type", contentType);
+        exchange.sendResponseHeaders(status, body.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(body);
+        }
+    }
+}
