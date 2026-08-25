@@ -18,3 +18,10 @@ invisible-item-frames: true
 # Disable cartography tables. The plugin replaces map making, and vanilla map
 # locking/expansion could break drawing maps.
 disable-cartography-table: true
+
+# Enable the multi-map wall feature: sneak-right-clicking an item frame in a
+# grid of drawing maps reports the detected grid dimensions in chat.
+multi-map-drawing: true
+
+# Largest grid dimension allowed for the multi-map wall feature, in item frames.
+multi-map-max-grid: 5
