@@ -9,7 +9,7 @@ authors: [ wildcat ]
 commands:
   mapartist:
     description: MapArtist commands
-    usage: /mapartist <give|draw>
+    usage: /mapartist <give|draw|brush>
     aliases: [ ma ]
     permission: mapartist.use
 

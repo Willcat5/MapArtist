@@ -1,6 +1,7 @@
 package io.github.willits.mapArtist;
 
 import io.github.willits.mapArtist.web.WebServer;
+import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.map.MapRenderer;
@@ -19,6 +20,8 @@ public final class MapArtist extends JavaPlugin {
     private WebServer webServer;
     private TokenManager tokenManager;
     private DrawingStore drawingStore;
+    private EditLogger editLogger;
+    private Paintbrush paintbrush;
     private String host;
     private int port;
     private File drawingsDir;
@@ -31,11 +34,14 @@ public final class MapArtist extends JavaPlugin {
         host = getConfig().getString("host", "localhost");
         port = getConfig().getInt("port", 8080);
         long ttlSeconds = getConfig().getLong("token-ttl-seconds", 1209600);
+        paintbrush = new Paintbrush(getConfig().getConfigurationSection("paintbrush"));
 
-        tokenManager = new TokenManager(ttlSeconds * 1000);
+        tokenManager = new TokenManager(ttlSeconds * 1000,
+                getConfig().getInt("rate-limit-per-minute", 30));
         drawingStore = new DrawingStore();
         drawingsDir = new File(getDataFolder(), "drawings");
         draftsDir = new File(getDataFolder(), "drafts");
+        editLogger = new EditLogger(this);
 
         loadDrawings();
         sweepDrafts();
@@ -57,6 +63,7 @@ public final class MapArtist extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MapCopyListener(this), this);
         getServer().getPluginManager().registerEvents(new ItemFrameListener(this), this);
         getServer().getPluginManager().registerEvents(new CartographyListener(this), this);
+        getServer().getPluginManager().registerEvents(new MapProtectionListener(this), this);
 
         getLogger().info("MapArtist enabled. Public host configured as: " + host);
         getLogger().info("┏┳┓┏━┓┏━┓   ┏━┓┏━┓╺┳╸╻┏━┓╺┳╸");
@@ -198,25 +205,56 @@ public final class MapArtist extends JavaPlugin {
         }
     }
 
-    public void openDrawingSession(Player player, int mapId) {
+    public boolean openDrawingSession(Player player, int mapId) {
+        if (paintbrush == null || !paintbrush.isPaintbrush(player.getInventory().getItemInOffHand())) {
+            player.sendMessage(ChatColor.RED
+                    + "You need a paintbrush in your off hand to draw on a map.");
+            return false;
+        }
         MapView view = Bukkit.getMap(mapId);
         if (view == null) {
             getLogger().warning("No map view found for map #" + mapId);
-            return;
+            return false;
         }
 
         String token = tokenManager.create(player.getUniqueId(), mapId);
+        if (token == null) {
+            int limit = getConfig().getInt("rate-limit-per-minute", 30);
+            player.sendMessage(ChatColor.RED
+                    + "You have reached the drawing link limit of " + limit + " per minute. Try again shortly.");
+            return false;
+        }
         String url = "http://" + host + ":" + port + "/draw?token=" + token;
         MapInteractListener.sendLink(player, url);
-        prepareMap(view, true);
+        convertMap(mapId);
+        return true;
     }
 
     public TokenManager getTokenManager() {
         return tokenManager;
     }
 
+    public Paintbrush getPaintbrush() {
+        return paintbrush;
+    }
+
     public DrawingStore getDrawingStore() {
         return drawingStore;
+    }
+
+    public EditLogger getEditLogger() {
+        return editLogger;
+    }
+
+    /**
+     * Records an edit (or conversion) of one or more maps by a player, if
+     * edit logging is enabled. Multi-map walls are logged as a single entry
+     * listing every map ID touched.
+     */
+    public void logEdits(UUID playerId, java.util.List<Integer> mapIds) {
+        if (editLogger != null) {
+            editLogger.log(playerId, mapIds);
+        }
     }
 
     public void attachRenderer(int mapId) {
@@ -228,16 +266,30 @@ public final class MapArtist extends JavaPlugin {
         attachRenderer(view);
     }
 
+    /**
+     * Converts a vanilla map into a MapArtist drawing map by attaching the
+     * capture + drawing renderers (idempotent: already-drawing maps are left
+     * untouched). This is what "opening a map with a paintbrush" does, whether
+     * the map is held in hand or sits in an item frame on a wall.
+     */
+    public void convertMap(int mapId) {
+        MapView view = Bukkit.getMap(mapId);
+        if (view == null) {
+            getLogger().warning("No map view found for map #" + mapId);
+            return;
+        }
+        if (view.getRenderers().stream().anyMatch(r -> r instanceof DrawingRenderer)) {
+            return;
+        }
+        prepareMap(view, true);
+    }
+
     public void attachRenderer(MapView view) {
         prepareMap(view, false);
     }
 
     public void prepareMap(MapView view, boolean captureBase) {
         getServer().getScheduler().runTask(this, () -> applyRenderers(view, captureBase));
-    }
-
-    public void prepareNewMap(MapView view) {
-        applyRenderers(view, false);
     }
 
     private void applyRenderers(MapView view, boolean captureBase) {

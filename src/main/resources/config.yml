@@ -8,6 +8,44 @@ port: 8080
 # Default is 14 days (1209600).
 token-ttl-seconds: 1209600
 
+# Maximum number of drawing session links a player can generate per minute.
+# 0 or a negative value disables the limit.
+rate-limit-per-minute: 30
+
+# When true, the web editor only accepts a submit while the player still holds
+# the map in their hand (main or off). Prevents "I have the link, so I can
+# write to the map" wireless communication stuff. Set false to allow submits any time the
+# session link is valid if you don't have that issue.
+require-holding-to-submit: true
+
+# Maximum size of an image upload (base64 / PNG pasted into the editor), in
+# megabytes. Not too required, but moreso a safety measure type of thing.
+max-upload-size-megabytes: 10
+
+# Protect item frames that hold MapArtist maps from explosions. Does not protect the block behind it.
+map-protection-explosions: true
+
+# whether the map item itself is protected from destruction: fire, lava, cactus, explosions,
+# and other item-deleting blocks. Sort of how netherite survives lava, but for
+# MapArtist maps. Applies while the map is a dropped item entity.
+map-protection-itemdestruction: true
+
+# Prevent players from breaking item frames that hold locked MapArtist maps by
+# damaging them. NOTE: this only protects the item frame itself; the block
+# behind the frame is not affected in any way.
+map-protection-anti-break-when-locked: false
+
+# Write a readable log of every drawing edit. Each line records the player, the
+# UTC timestamp, and the map ID(s) edited (multi-map walls are logged in a
+# single entry listing every map ID touched).
+log-edits: true
+
+# Maximum number of lines kept in the edit log. -1 is unlimited.
+# (logs are pretty small).
+# any other non-negative number keeps the newest entries and deletes the
+# oldest ones to fit.
+log-entry-limit: -1
+
 # How long autosaved drafts are kept on disk before being swept, in days.
 draft-retention-days: 21
 
@@ -25,3 +63,23 @@ multi-map-drawing: true
 
 # Largest grid dimension allowed for the multi-map wall feature, in item frames.
 multi-map-max-grid: 5
+
+# When true, maps keep their vanilla behaviour until they are first opened
+# with the paintbrush (which converts them to drawing maps). This also applies
+# to map walls. When false, newly created maps become MapArtist drawing maps
+# immediately.
+vanilla-mapping: true
+
+# Paintbrush item used to open map drawing sessions (off-hand) and to interact
+# with map walls (either hand). Customize these if your resource pack uses a
+# different model, or to avoid clashing with other plugins that use the same
+# base item + custom model data.
+paintbrush:
+  # Base item the brush is made from.
+  base-item: STICK
+  # Display name. Supports & color codes.
+  name: "&6&lPaintbrush"
+  # item_model component assigned to the brush (namespace:path).
+  item-model: "minecraft:brush"
+  # custom_model_data value used alongside the base item.
+  custom-model-data: 1

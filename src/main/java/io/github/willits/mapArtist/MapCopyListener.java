@@ -66,6 +66,7 @@ public final class MapCopyListener implements Listener {
         }
         plugin.getDrawingStore().put(newId, copy);
         plugin.saveDrawing(newId, copy);
+        plugin.attachRenderer(newView);
 
         ItemStack newItem = new ItemStack(Material.FILLED_MAP);
         MapMeta newMeta = (MapMeta) newItem.getItemMeta();
@@ -93,7 +94,14 @@ public final class MapCopyListener implements Listener {
 
     @EventHandler
     public void onMapInitialize(MapInitializeEvent event) {
-        plugin.prepareNewMap(event.getMap());
+        // With vanilla-mapping on, new maps keep their vanilla behaviour until
+        // they are first opened with the paintbrush (which converts them).
+        // With it off, every new map is hijacked into a drawing map, matching
+        // the original behaviour. Converting a copy created by the drop trick
+        // is handled onDrop.
+        if (!plugin.getConfig().getBoolean("vanilla-mapping", true)) {
+            plugin.attachRenderer(event.getMap());
+        }
     }
 
     private Item findNearby(Item origin, Material type) {

@@ -22,9 +22,25 @@ public final class ItemFrameListener implements Listener {
             return;
         }
         Player player = event.getPlayer();
+        boolean custom = MapWallDetector.isCustomMap(frame.getItem());
+        boolean isMap = MapWallDetector.mapViewOf(frame.getItem()) != null;
+        if (custom) {
+            // MapArtist drawing maps must never be rotated by hand; the wall
+            // detection (and grid alignment) relies on frames staying square.
+            // Cancelling the interaction also prevents replacing the map here.
+            event.setCancelled(true);
+        }
         if (player.isSneaking()
                 && plugin.getConfig().getBoolean("multi-map-drawing", true)
-                && MapWallDetector.isCustomMap(frame.getItem())) {
+                && isMap) {
+            if (!plugin.getPaintbrush().isPaintbrush(player.getInventory().getItemInMainHand())
+                    && !plugin.getPaintbrush().isPaintbrush(player.getInventory().getItemInOffHand())) {
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
+                        + "You need a paintbrush in your hand to draw on a map wall.");
+                syncNextTick(frame);
+                return;
+            }
             int maxGrid = plugin.getConfig().getInt("multi-map-max-grid", 5);
             MapWallDetector.Grid grid = MapWallDetector.detect(frame, maxGrid);
             if (grid != null) {
@@ -32,6 +48,12 @@ public final class ItemFrameListener implements Listener {
                     player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
                             + "This map grid is too large. Maximum size is " + maxGrid + "x" + maxGrid + ".");
                 } else {
+                    // Opening a wall with the brush converts any vanilla maps
+                    // in the grid into drawing maps, same as opening one in hand.
+                    for (int mapId : grid.mapIds()) {
+                        plugin.convertMap(mapId);
+                    }
+                    plugin.logEdits(player.getUniqueId(), grid.mapIds());
                     player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.WHITE
                             + "Detected a map grid: " + grid.width() + " wide x " + grid.height() + " tall.");
                     player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.GRAY
@@ -48,7 +70,7 @@ public final class ItemFrameListener implements Listener {
                 event.setCancelled(true);
             } else {
                 player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
-                        + "That frame isn't part of a clean grid of drawing maps.");
+                        + "That frame isn't part of a clean grid of maps.");
                 event.setCancelled(true);
             }
         }

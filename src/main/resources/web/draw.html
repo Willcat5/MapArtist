@@ -481,14 +481,43 @@
 
   #canvasFrame {
     margin: auto;
+    flex: 0 0 auto;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
     image-rendering: pixelated;
-    background: #808080;
+  }
+
+  .border-corner {
+    position: absolute;
+    image-rendering: pixelated;
+    z-index: 5;
+  }
+  .border-edge {
+    position: absolute;
+    image-rendering: pixelated;
+    z-index: 5;
+  }
+  #edgeTop {
+    background-image: url('/img/border/top.png');
+    background-repeat: repeat-x;
+  }
+  #edgeBottom {
+    background-image: url('/img/border/bottom.png');
+    background-repeat: repeat-x;
+  }
+  #edgeLeft {
+    background-image: url('/img/border/left.png');
+    background-repeat: repeat-y;
+  }
+  #edgeRight {
+    background-image: url('/img/border/right.png');
+    background-repeat: repeat-y;
   }
 
   #canvas {
+    display: block;
     image-rendering: pixelated;
     cursor: crosshair;
     touch-action: none;
@@ -499,6 +528,12 @@
 
   #canvasBox {
     position: relative;
+    background-color: #c2ac88;
+    background-image:
+      linear-gradient(45deg, #c9b28d 25%, transparent 25%, transparent 75%, #c9b28d 75%),
+      linear-gradient(45deg, #c9b28d 25%, transparent 25%, transparent 75%, #c9b28d 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
   }
 
   #selectionOverlay {
@@ -759,6 +794,20 @@
       <button type="button" class="tool-icon-btn" data-tool="hand" title="Hand tool (drag to move drawing)">
         <img src="/img/icons/handtool.svg" alt="Hand tool">
       </button>
+      <button type="button" class="tool-icon-btn" id="canvasRotateLBtn" title="Rotate canvas left (90&deg;)">
+        <img src="/img/icons/rotate-left.svg" alt="Rotate left">
+      </button>
+      <button type="button" class="tool-icon-btn" id="canvasRotateRBtn" title="Rotate canvas right (90&deg;)">
+        <img src="/img/icons/rotate-right.svg" alt="Rotate right">
+      </button>
+    </div>
+    <div class="icon-row">
+      <button type="button" class="tool-icon-btn" id="canvasMirrorHBtn" title="Mirror canvas horizontally (flip left/right)">
+        <img src="/img/icons/mirror-h.svg" alt="Mirror horizontal">
+      </button>
+      <button type="button" class="tool-icon-btn" id="canvasMirrorVBtn" title="Mirror canvas vertically (flip up/down)">
+        <img src="/img/icons/mirror-v.svg" alt="Mirror vertical">
+      </button>
       <button type="button" class="tool-icon-btn" id="centerVBtn" title="Center vertically">
         <img src="/img/icons/centervertiacal.svg" alt="Center vertical">
       </button>
@@ -840,6 +889,14 @@
 
   <div id="canvasWrap">
     <div id="canvasFrame">
+      <img class="border-corner" id="cornerTL" src="/img/border/tl.png" alt="">
+      <img class="border-corner" id="cornerTR" src="/img/border/tr.png" alt="">
+      <img class="border-corner" id="cornerBL" src="/img/border/bl.png" alt="">
+      <img class="border-corner" id="cornerBR" src="/img/border/br.png" alt="">
+      <div class="border-edge" id="edgeTop"></div>
+      <div class="border-edge" id="edgeBottom"></div>
+      <div class="border-edge" id="edgeLeft"></div>
+      <div class="border-edge" id="edgeRight"></div>
       <div id="canvasBox">
         <canvas id="canvas" width="128" height="128"></canvas>
         <canvas id="selectionOverlay" width="128" height="128"></canvas>
@@ -2442,6 +2499,62 @@
   document.getElementById('centerHBtn').addEventListener('click', () => centerCanvas('horizontal'));
   document.getElementById('centerVBtn').addEventListener('click', () => centerCanvas('vertical'));
 
+  function rotateCanvas(clockwise) {
+    if (floating) cancelFloating();
+    if (!document.getElementById('textMenu').classList.contains('hidden')) closeTextMenu();
+    clearSelection();
+    const data = ctx.getImageData(0, 0, SIZE, SIZE);
+    const out = ctx.createImageData(SIZE, SIZE);
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const si = (y * SIZE + x) * 4;
+        const dx = clockwise ? SIZE - 1 - y : y;
+        const dy = clockwise ? x : SIZE - 1 - x;
+        const di = (dy * SIZE + dx) * 4;
+        out.data[di] = data.data[si];
+        out.data[di + 1] = data.data[si + 1];
+        out.data[di + 2] = data.data[si + 2];
+        out.data[di + 3] = data.data[si + 3];
+      }
+    }
+    pushUndo();
+    ctx.putImageData(out, 0, 0);
+    refreshInUse();
+    status.textContent = 'Canvas rotated ' + (clockwise ? 'right' : 'left');
+  }
+
+  document.getElementById('canvasRotateLBtn').addEventListener('click', () => rotateCanvas(false));
+  document.getElementById('canvasRotateRBtn').addEventListener('click', () => rotateCanvas(true));
+
+  // Mirrors the whole canvas about its centerline. 'horizontal' flips
+  // left/right, 'vertical' flips up/down.
+  function mirrorCanvas(axis) {
+    if (floating) cancelFloating();
+    if (!document.getElementById('textMenu').classList.contains('hidden')) closeTextMenu();
+    clearSelection();
+    const data = ctx.getImageData(0, 0, SIZE, SIZE);
+    const out = ctx.createImageData(SIZE, SIZE);
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const si = (y * SIZE + x) * 4;
+        const dx = axis === 'horizontal' ? SIZE - 1 - x : x;
+        const dy = axis === 'horizontal' ? y : SIZE - 1 - y;
+        const di = (dy * SIZE + dx) * 4;
+        out.data[di] = data.data[si];
+        out.data[di + 1] = data.data[si + 1];
+        out.data[di + 2] = data.data[si + 2];
+        out.data[di + 3] = data.data[si + 3];
+      }
+    }
+    pushUndo();
+    ctx.putImageData(out, 0, 0);
+    refreshInUse();
+    status.textContent = 'Canvas mirrored ' + (axis === 'horizontal' ? 'horizontally' : 'vertically');
+  }
+
+  document.getElementById('canvasMirrorHBtn').addEventListener('click', () => mirrorCanvas('horizontal'));
+  document.getElementById('canvasMirrorVBtn').addEventListener('click', () => mirrorCanvas('vertical'));
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (!document.getElementById('textMenu').classList.contains('hidden')) {
@@ -2477,9 +2590,67 @@
 
   // ---- Zoom ----
   const BORDER_SCALE = 1.09375;
+  const BORDER_SIZE = 6;
   const zoomSlider = document.getElementById('zoomSlider');
   const zoomLabel = document.getElementById('zoomLabel');
   const canvasFrame = document.getElementById('canvasFrame');
+  const canvasBox = document.getElementById('canvasBox');
+  const cornerTL = document.getElementById('cornerTL');
+  const cornerTR = document.getElementById('cornerTR');
+  const cornerBL = document.getElementById('cornerBL');
+  const cornerBR = document.getElementById('cornerBR');
+  const edgeTop = document.getElementById('edgeTop');
+  const edgeBottom = document.getElementById('edgeBottom');
+  const edgeLeft = document.getElementById('edgeLeft');
+  const edgeRight = document.getElementById('edgeRight');
+
+  function applyBorder(scale) {
+    const t = BORDER_SIZE * scale;
+    // The edge art is 128x6 px: at any zoom it renders at natural size, which
+    // exactly spans the gap between the two t-px corners (140s - 12s = 128s).
+    const tile = SIZE * scale;
+
+    cornerTL.style.width = t + 'px';
+    cornerTL.style.height = t + 'px';
+    cornerTL.style.top = 0;
+    cornerTL.style.left = 0;
+    cornerTR.style.width = t + 'px';
+    cornerTR.style.height = t + 'px';
+    cornerTR.style.top = 0;
+    cornerTR.style.right = 0;
+    cornerBL.style.width = t + 'px';
+    cornerBL.style.height = t + 'px';
+    cornerBL.style.bottom = 0;
+    cornerBL.style.left = 0;
+    cornerBR.style.width = t + 'px';
+    cornerBR.style.height = t + 'px';
+    cornerBR.style.bottom = 0;
+    cornerBR.style.right = 0;
+
+    edgeTop.style.left = t + 'px';
+    edgeTop.style.right = t + 'px';
+    edgeTop.style.top = 0;
+    edgeTop.style.height = t + 'px';
+    edgeTop.style.backgroundSize = tile + 'px ' + t + 'px';
+
+    edgeBottom.style.left = t + 'px';
+    edgeBottom.style.right = t + 'px';
+    edgeBottom.style.bottom = 0;
+    edgeBottom.style.height = t + 'px';
+    edgeBottom.style.backgroundSize = tile + 'px ' + t + 'px';
+
+    edgeLeft.style.left = 0;
+    edgeLeft.style.top = t + 'px';
+    edgeLeft.style.bottom = t + 'px';
+    edgeLeft.style.width = t + 'px';
+    edgeLeft.style.backgroundSize = t + 'px ' + tile + 'px';
+
+    edgeRight.style.right = 0;
+    edgeRight.style.top = t + 'px';
+    edgeRight.style.bottom = t + 'px';
+    edgeRight.style.width = t + 'px';
+    edgeRight.style.backgroundSize = t + 'px ' + tile + 'px';
+  }
 
   function applyZoom(percent) {
     const scale = percent / 100;
@@ -2490,6 +2661,14 @@
     canvasFrame.style.width = (SIZE * scale * BORDER_SCALE) + 'px';
     canvasFrame.style.height = (SIZE * scale * BORDER_SCALE) + 'px';
     zoomLabel.textContent = percent + '%';
+    applyBorder(scale);
+
+    // Scale the checkerboard with the zoom so each square covers exactly 1x1
+    // map pixel and stays aligned to the canvas pixel grid. The 45deg gradient
+    // pattern makes each square half the background-size, so size is 2x.
+    const checker = 2 * scale;
+    canvasBox.style.backgroundSize = checker + 'px ' + checker + 'px';
+    canvasBox.style.backgroundPosition = '0 0, ' + scale + 'px ' + scale + 'px';
   }
   zoomSlider.addEventListener('input', () => applyZoom(parseInt(zoomSlider.value, 10)));
   applyZoom(parseInt(zoomSlider.value, 10));

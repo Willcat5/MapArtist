@@ -37,10 +37,10 @@ public final class MapWallDetector {
 
     /**
      * Returns the grid containing {@code clicked}, or {@code null} if the frame
-     * is not part of a clean, filled rectangle of custom-map frames.
+     * is not part of a clean, filled rectangle of map frames.
      */
     public static Grid detect(ItemFrame clicked, int maxGrid) {
-        if (!isCustomMap(clicked.getItem())) {
+        if (mapViewOf(clicked.getItem()) == null) {
             return null;
         }
         BlockFace facing = clicked.getFacing();
@@ -67,7 +67,7 @@ public final class MapWallDetector {
                 continue;
             }
             MapView view = mapViewOf(frame.getItem());
-            if (view == null || view.getRenderers().stream().noneMatch(r -> r instanceof DrawingRenderer)) {
+            if (view == null) {
                 continue;
             }
             Point point = planePoint(frame, facing);

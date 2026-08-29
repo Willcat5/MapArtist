@@ -1,6 +1,8 @@
 package io.github.willits.mapArtist;
 
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,13 +13,23 @@ public final class TokenManager {
 
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
     private final Map<String, byte[][]> shown = new ConcurrentHashMap<>();
+    private final Map<UUID, Deque<Long>> created = new ConcurrentHashMap<>();
     private final long ttlMillis;
+    private final int perMinuteLimit;
 
-    public TokenManager(long ttlMillis) {
+    public TokenManager(long ttlMillis, int perMinuteLimit) {
         this.ttlMillis = ttlMillis;
+        this.perMinuteLimit = perMinuteLimit;
     }
 
+    /**
+     * Creates a session token for the player, enforcing the per-minute rate
+     * limit. Returns null when the player has hit the limit.
+     */
     public String create(UUID player, int mapId) {
+        if (!allow(player)) {
+            return null;
+        }
         for (Map.Entry<String, Session> entry : sessions.entrySet()) {
             Session session = entry.getValue();
             if (session.player().equals(player) && session.mapId() == mapId) {
@@ -28,6 +40,24 @@ public final class TokenManager {
         String token = UUID.randomUUID().toString().replace("-", "");
         sessions.put(token, new Session(player, mapId, Instant.now().plusMillis(ttlMillis)));
         return token;
+    }
+
+    private boolean allow(UUID player) {
+        if (perMinuteLimit <= 0) {
+            return true;
+        }
+        long now = System.currentTimeMillis();
+        Deque<Long> times = created.computeIfAbsent(player, p -> new ArrayDeque<>());
+        synchronized (times) {
+            while (!times.isEmpty() && now - times.peekFirst() >= 60_000L) {
+                times.pollFirst();
+            }
+            if (times.size() >= perMinuteLimit) {
+                return false;
+            }
+            times.addLast(now);
+            return true;
+        }
     }
 
     public void sweep() {

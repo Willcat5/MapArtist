@@ -26,6 +26,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -268,7 +269,8 @@ public final class WebServer {
             }
 
             int mapId = session.mapId();
-            if (!isHoldingMap(session.player(), mapId)) {
+            if (plugin.getConfig().getBoolean("require-holding-to-submit", true)
+                    && !isHoldingMap(session.player(), mapId)) {
                 respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"You must be holding the map in your hand to submit changes\"}");
                 return;
             }
@@ -279,7 +281,7 @@ public final class WebServer {
                 return;
             }
 
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            String body = new String(readBody(exchange), StandardCharsets.UTF_8);
             JsonObject root = JsonParser.parseString(body).getAsJsonObject();
             String imageData = root.get("image").getAsString();
             byte[] png = Base64.getDecoder().decode(imageData);
@@ -313,6 +315,7 @@ public final class WebServer {
             }
             plugin.attachRenderer(session.mapId());
             plugin.deleteDraft(session.player(), session.mapId());
+            plugin.logEdits(session.player(), List.of(session.mapId()));
 
             logger.info("Saved drawing for map #" + session.mapId()
                     + " (" + colored + " colored pixels)");
@@ -373,7 +376,7 @@ public final class WebServer {
             }
             int mapId = session.mapId();
 
-            byte[] flat = exchange.getRequestBody().readAllBytes();
+            byte[] flat = readBody(exchange);
             if (flat.length != 128 * 128) {
                 respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Invalid .dat file: expected "
                         + (128 * 128) + " bytes, got " + flat.length + "\"}");
@@ -390,6 +393,7 @@ public final class WebServer {
             plugin.saveDrawing(mapId, pixels);
             plugin.attachRenderer(mapId);
             plugin.deleteDraft(session.player(), mapId);
+            plugin.logEdits(session.player(), List.of(mapId));
 
             byte[][] composite = merge(store.getBase(mapId), pixels);
             tokenManager.setShown(token, hasColor(composite) ? composite : null);
@@ -431,7 +435,7 @@ public final class WebServer {
                             + ",\"base\":\"" + encoded + "\"}");
                 }
                 case "POST" -> {
-                    String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    String body = new String(readBody(exchange), StandardCharsets.UTF_8);
                     JsonObject root = JsonParser.parseString(body).getAsJsonObject();
                     String imageData = root.get("image").getAsString();
                     byte[] png = Base64.getDecoder().decode(imageData);
@@ -525,6 +529,29 @@ public final class WebServer {
             }
         }
         return null;
+    }
+
+    /**
+     * Reads a request body, capping its size to max-upload-size-megabytes so a
+     * single request cannot flood the server memory. Throws IOException with a
+     * "too large" message when the limit is exceeded (shown to the client).
+     */
+    private byte[] readBody(HttpExchange exchange) throws IOException {
+        int megabytes = plugin.getConfig().getInt("max-upload-size-megabytes", 10);
+        int maxBytes = megabytes > 0 ? megabytes * 1024 * 1024 : Integer.MAX_VALUE;
+        InputStream in = exchange.getRequestBody();
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int total = 0;
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            total += read;
+            if (total > maxBytes) {
+                throw new IOException("Upload exceeds the maximum size of " + megabytes + " MB");
+            }
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 
     private void respondJson(HttpExchange exchange, int status, String json) throws IOException {

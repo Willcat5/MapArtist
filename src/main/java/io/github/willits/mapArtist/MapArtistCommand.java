@@ -34,21 +34,33 @@ public final class MapArtistCommand implements TabExecutor {
         switch (args[0].toLowerCase()) {
             case "give" -> giveMap(player);
             case "draw" -> drawMap(player);
+            case "brush" -> giveBrush(player);
             default -> sendHelp(player);
         }
         return true;
     }
 
+    private void giveBrush(Player player) {
+        player.getInventory().addItem(plugin.getPaintbrush().create());
+        player.sendMessage("Gave you a paintbrush. Hold it in your off hand to open maps, or in either hand to inspect map walls.");
+    }
+
     private void giveMap(Player player) {
         World world = player.getWorld();
         MapView view = Bukkit.createMap(world);
-        plugin.attachRenderer(view);
+        if (!plugin.getConfig().getBoolean("vanilla-mapping", true)) {
+            plugin.attachRenderer(view);
+        }
         ItemStack item = new ItemStack(Material.FILLED_MAP);
         MapMeta meta = (MapMeta) item.getItemMeta();
         meta.setMapView(view);
         item.setItemMeta(meta);
         player.getInventory().addItem(item);
-        player.sendMessage("Gave you a fresh map (map #" + view.getId() + "). Right-click it to start drawing.");
+        if (plugin.getConfig().getBoolean("vanilla-mapping", true)) {
+            player.sendMessage("Gave you a fresh map (map #" + view.getId() + "). Sneak-right-click it while holding the paintbrush to turn it into a drawing.");
+        } else {
+            player.sendMessage("Gave you a drawing map (map #" + view.getId() + "). Right-click it to start drawing.");
+        }
     }
 
     private void drawMap(Player player) {
@@ -64,10 +76,11 @@ public final class MapArtistCommand implements TabExecutor {
         player.sendMessage("MapArtist commands:");
         player.sendMessage("/mapartist give - Get a fresh drawable map");
         player.sendMessage("/mapartist draw - Open the editor for the map in your hand");
+        player.sendMessage("/mapartist brush - Get the paintbrush (off hand)");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
-        return List.of("give", "draw");
+        return List.of("give", "draw", "brush");
     }
 }
