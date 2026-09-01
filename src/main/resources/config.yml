@@ -8,6 +8,9 @@ port: 8080
 # Default is 14 days (1209600).
 token-ttl-seconds: 1209600
 
+# Show the large ASCII "MapArtist" banner in the console on startup.
+show-ascii-banner: true
+
 # Maximum number of drawing session links a player can generate per minute.
 # 0 or a negative value disables the limit.
 rate-limit-per-minute: 30
@@ -22,17 +25,15 @@ require-holding-to-submit: true
 # megabytes. Not too required, but moreso a safety measure type of thing.
 max-upload-size-megabytes: 10
 
-# Protect item frames that hold MapArtist maps from explosions. Does not protect the block behind it.
-map-protection-explosions: true
-
 # whether the map item itself is protected from destruction: fire, lava, cactus, explosions,
 # and other item-deleting blocks. Sort of how netherite survives lava, but for
 # MapArtist maps. Applies while the map is a dropped item entity.
 map-protection-itemdestruction: true
 
-# Prevent players from breaking item frames that hold locked MapArtist maps by
-# damaging them. NOTE: this only protects the item frame itself; the block
-# behind the frame is not affected in any way.
+# Prevent players from breaking item frames that hold LOCKED MapArtist maps by
+# damaging them. The map's owner (and admins) can still break their own locked
+# map out of the frame. NOTE: this only protects the item frame itself; the
+# block behind the frame is not affected in any way.
 map-protection-anti-break-when-locked: false
 
 # Write a readable log of every drawing edit. Each line records the player, the
@@ -63,6 +64,12 @@ multi-map-drawing: true
 
 # Largest grid dimension allowed for the multi-map wall feature, in item frames.
 multi-map-max-grid: 5
+
+# For WALL (multi-map) editing sessions: how far (in blocks) the player must be
+# from the center of the wall they're editing in order to submit changes. This
+# replaces the "must be holding the map" check for wall sessions, since you may
+# not be carrying any individual map. Set to 0 or negative to disable.
+wall-proximity-blocks: 10
 
 # When true, maps keep their vanilla behaviour until they are first opened
 # with the paintbrush (which converts them to drawing maps). This also applies

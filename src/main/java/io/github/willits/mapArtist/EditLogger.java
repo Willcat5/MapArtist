@@ -47,24 +47,46 @@ public final class EditLogger {
                 }
                 line.append('#').append(mapIds.get(i));
             }
-            line.append(System.lineSeparator());
-
-            int limit = plugin.getConfig().getInt("log-entry-limit", -1);
-            if (limit < 0) {
-                append(line.toString());
-                return;
-            }
-            List<String> lines = file.isFile()
-                    ? Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)
-                    : new java.util.ArrayList<>();
-            lines.add(line.toString().replace("\r\n", "\n").replace("\n", System.lineSeparator()));
-            if (lines.size() > limit) {
-                lines = lines.subList(lines.size() - limit, lines.size());
-            }
-            Files.write(file.toPath(), lines, StandardCharsets.UTF_8);
+            writeLine(line.toString());
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to write edit log: " + e.getMessage());
         }
+    }
+
+    /**
+     * Logs a lock-related event (LOCK/UNLOCK) for a single map. The modifier is
+     * the player who changed the lock (the locking player, the owner unlocking,
+     * or an admin reassigning/unlocking).
+     */
+    public void logLock(UUID modifierId, int mapId, String action) {
+        try {
+            if (!plugin.getConfig().getBoolean("log-edits", true)) {
+                return;
+            }
+            String stamp = ZonedDateTime.now(ZoneOffset.UTC).format(TIME);
+            String line = "[" + stamp + " UTC] " + displayName(modifierId)
+                    + " " + action + " map #" + mapId;
+            writeLine(line);
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to write edit log: " + e.getMessage());
+        }
+    }
+
+    private void writeLine(String line) throws IOException {
+        String text = line + System.lineSeparator();
+        int limit = plugin.getConfig().getInt("log-entry-limit", -1);
+        if (limit < 0) {
+            append(line + System.lineSeparator());
+            return;
+        }
+        List<String> lines = file.isFile()
+                ? Files.readAllLines(file.toPath(), StandardCharsets.UTF_8)
+                : new java.util.ArrayList<>();
+        lines.add(text.replace("\r\n", "\n").replace("\n", System.lineSeparator()));
+        if (lines.size() > limit) {
+            lines = lines.subList(lines.size() - limit, lines.size());
+        }
+        Files.write(file.toPath(), lines, StandardCharsets.UTF_8);
     }
 
     private String displayName(UUID playerId) {

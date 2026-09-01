@@ -9,7 +9,7 @@ authors: [ wildcat ]
 commands:
   mapartist:
     description: MapArtist commands
-    usage: /mapartist <give|draw|brush>
+    usage: /mapartist <draw|brush|give|reload|confirm|cancel|setowner|unlock>
     aliases: [ ma ]
     permission: mapartist.use
 
@@ -17,3 +17,6 @@ permissions:
   mapartist.use:
     description: Allows using MapArtist
     default: true
+  mapartist.admin:
+    description: Allows admin commands
+    default: op

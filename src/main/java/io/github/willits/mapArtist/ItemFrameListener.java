@@ -48,24 +48,31 @@ public final class ItemFrameListener implements Listener {
                     player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
                             + "This map grid is too large. Maximum size is " + maxGrid + "x" + maxGrid + ".");
                 } else {
-                    // Opening a wall with the brush converts any vanilla maps
-                    // in the grid into drawing maps, same as opening one in hand.
+                    // Opening a wall with the brush opens a whole-grid drawing
+                    // session. Vanilla maps in the grid are converted into
+                    // drawing maps (same as opening one in hand). Cells locked
+                    // to another player are omitted from the session (with a
+                    // warning) and are not converted or opened for this player.
+                    java.util.List<Integer> locked = new java.util.ArrayList<>();
                     for (int mapId : grid.mapIds()) {
-                        plugin.convertMap(mapId);
+                        if (!plugin.canEdit(mapId, player.getUniqueId())) {
+                            locked.add(mapId);
+                        }
                     }
-                    plugin.logEdits(player.getUniqueId(), grid.mapIds());
-                    player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.WHITE
-                            + "Detected a map grid: " + grid.width() + " wide x " + grid.height() + " tall.");
-                    player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.GRAY
-                            + "Map IDs by row (top to bottom): " + formatMapIds(grid) + ".");
+                    plugin.logEdits(player.getUniqueId(), grid.mapIds().stream()
+                            .filter(id -> plugin.canEdit(id, player.getUniqueId()))
+                            .toList());
+                    if (!locked.isEmpty()) {
+                        player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
+                                + "Skipped locked map(s): #" + String.join(", ",
+                                locked.stream().map(String::valueOf).toList()) + ". Only the player who locked them can edit.");
+                    }
                     if (grid.rotation() == null) {
                         player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
-                                + "Warning: the frames have mixed rotations - align them (map-north up) before editing.");
-                    } else {
-                        player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.GRAY
-                                + "All frames aligned (rotation " + grid.rotation().name().replace('_', ' ').toLowerCase() + ").");
+                                + "Warning: the frames have mixed rotations. Align them (map-north up) before editing. (you may want to break&replace them)");
                     }
                     highlightWall(frame.getWorld(), grid);
+                    plugin.openWallSession(player, grid, frame.getLocation());
                 }
                 event.setCancelled(true);
             } else {
@@ -86,17 +93,6 @@ public final class ItemFrameListener implements Listener {
 
     private void syncNextTick(ItemFrame frame) {
         plugin.getServer().getScheduler().runTask(plugin, () -> syncFrame(frame));
-    }
-
-    private String formatMapIds(MapWallDetector.Grid grid) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < grid.mapIds().size(); i++) {
-            if (i > 0) {
-                sb.append(i % grid.width() == 0 ? " / " : "-");
-            }
-            sb.append(grid.mapIds().get(i));
-        }
-        return sb.toString();
     }
 
     private void highlightWall(org.bukkit.World world, MapWallDetector.Grid grid) {

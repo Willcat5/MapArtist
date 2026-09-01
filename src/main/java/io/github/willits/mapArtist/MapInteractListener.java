@@ -13,6 +13,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.MapMeta;
+import org.bukkit.map.MapView;
 
 public final class MapInteractListener implements Listener {
 
@@ -38,7 +39,49 @@ public final class MapInteractListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        plugin.openDrawingSession(event.getPlayer(), meta.getMapId());
+        MapView view = MapWallDetector.mapViewOf(item);
+        if (view == null) {
+            return;
+        }
+        if (MapWallDetector.isCustomMap(item)) {
+            // Already a MapArtist drawing map: open the editor directly.
+            plugin.openDrawingSession(event.getPlayer(), view.getId());
+            return;
+        }
+        // A normal (vanilla) map: show a chat confirmation before converting.
+        plugin.setPendingConversion(event.getPlayer().getUniqueId(), view.getId());
+        sendConversionPrompt(event.getPlayer(), view.getId());
+    }
+
+    /**
+     * Asks the player to confirm converting a vanilla map into a MapArtist
+     * drawing map. Converting wipes vanilla mapping functionality, so this is
+     * an explicit, reversable-by-choice step rather than something done the
+     * moment a map is clicked.
+     */
+    private void sendConversionPrompt(Player player, int mapId) {
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.WHITE
+                + "Do you want to convert this map (map #" + mapId + ") into a paintable map?");
+        player.sendMessage(ChatColor.GRAY
+                + "This will remove the map's vanilla mapping functionality. The map's current pixels will be erased. "
+                + "This can't be undone.");
+
+        TextComponent confirm = new TextComponent("[Confirm]");
+        confirm.setColor(ChatColor.GREEN);
+        confirm.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/mapartist confirm"));
+        confirm.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("Click to convert this map into a MapArtist drawing map")));
+
+        TextComponent cancel = new TextComponent("[Cancel]");
+        cancel.setColor(ChatColor.RED);
+        cancel.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/mapartist cancel"));
+        cancel.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("Click to cancel")));
+
+        TextComponent line = new TextComponent("");
+        line.addExtra(confirm);
+        line.addExtra("  ");
+        line.addExtra(cancel);
+        player.spigot().sendMessage(line);
     }
 
     static void sendLink(Player player, String url) {

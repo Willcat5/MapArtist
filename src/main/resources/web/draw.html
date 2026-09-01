@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -30,7 +30,7 @@
     border-radius: 12px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
     max-width: calc(100% - 24px);
-    z-index: 5;
+    z-index: 50;
   }
 
   .brush-group {
@@ -251,7 +251,26 @@
   }
   .tool-icon-btn:disabled {
     opacity: 0.4;
-    cursor: not-allowed;
+    pointer-events: none;
+  }
+  #lockToggle {
+    height: 40px;
+  }
+  #lockToggle img {
+    width: 20px;
+    height: 20px;
+  }
+  /* Wall lock toggle in a mixed state: some cells owned, some not. The
+     diagonal stripes make it obvious the lock state is only partial. */
+  #lockToggle.mixed {
+    border: 2px dashed #ffd24a;
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 210, 74, 0.18) 0,
+      rgba(255, 210, 74, 0.18) 8px,
+      rgba(255, 210, 74, 0.04) 8px,
+      rgba(255, 210, 74, 0.04) 16px
+    );
   }
 
   label.option {
@@ -852,6 +871,13 @@
     <input type="file" id="importFile" accept=".dat" hidden>
   </div>
 
+  <div class="tool-section">
+    <h3>Lock</h3>
+    <button type="button" id="lockToggle" class="tool-icon-btn" title="Lock this map so only you can edit it" aria-pressed="false">
+      <img src="/img/icons/lock-open.svg" id="lockIcon" alt="Lock">
+    </button>
+  </div>
+
   <button type="button" class="tool-icon-btn" id="submitBtn" title="Submit to Game">
     <img src="/img/icons/sendfile.svg" alt="Submit to Game">
   </button>
@@ -980,7 +1006,9 @@
 
 <script>
 (() => {
-  const SIZE = 128;
+  const SIZE = 128;              // one map cell = 128x128 pixels
+  let WIDTH = SIZE;              // full canvas width in pixels (128 for one map)
+  let HEIGHT = SIZE;             // full canvas height in pixels (128 for one map)
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const status = document.getElementById('status');
@@ -1085,7 +1113,7 @@
   });
 
   function refreshInUse() {
-    const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+    const data = ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
     const found = new Set();
     for (let o = 0; o < data.length; o += 4) {
       if (data[o + 3] === 0) continue;
@@ -1157,7 +1185,7 @@
     // it (not restoring) keeps a stale mousemove from resurrecting the old
     // canvas state after undo/redo/center/paste/place.
     previewSnapshot = null;
-    undoStack.push(ctx.getImageData(0, 0, SIZE, SIZE));
+    undoStack.push(ctx.getImageData(0, 0, WIDTH, HEIGHT));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     redoStack = [];
     document.getElementById('undoBtn').disabled = false;
@@ -1180,9 +1208,9 @@
   // centerlines when mirroring is enabled.
   function stampBrush(x, y, size, color) {
     const positions = [[x, y]];
-    if (mirrorV) positions.push([SIZE - 1 - x, y]);
-    if (mirrorH) positions.push([x, SIZE - 1 - y]);
-    if (mirrorV && mirrorH) positions.push([SIZE - 1 - x, SIZE - 1 - y]);
+    if (mirrorV) positions.push([WIDTH - 1 - x, y]);
+    if (mirrorH) positions.push([x, HEIGHT - 1 - y]);
+    if (mirrorV && mirrorH) positions.push([WIDTH - 1 - x, HEIGHT - 1 - y]);
     for (const [px, py] of positions) {
       switch (brushType) {
         case 'circle':
@@ -1424,8 +1452,8 @@
     }
 
     const tmp = document.createElement('canvas');
-    tmp.width = SIZE;
-    tmp.height = SIZE;
+    tmp.width = WIDTH;
+    tmp.height = HEIGHT;
     const tc = tmp.getContext('2d');
     tc.imageSmoothingEnabled = false;
     tc.save();
@@ -1434,14 +1462,14 @@
     tc.drawImage(strip, 0, 0);
     tc.restore();
 
-    const td = tc.getImageData(0, 0, SIZE, SIZE).data;
+    const td = tc.getImageData(0, 0, WIDTH, HEIGHT).data;
     const mode = font.mode || 'alpha';
     const lumOf = i3 => 0.2126 * td[i3] + 0.7152 * td[i3 + 1] + 0.0722 * td[i3 + 2];
     const threshold = mode === 'alpha' ? 40 : 100;
-    let top = SIZE, bottom = -1;
-    for (let py = 0; py < SIZE; py++) {
-      for (let px = 0; px < SIZE; px++) {
-        const i3 = (py * SIZE + px) * 4;
+    let top = HEIGHT, bottom = -1;
+    for (let py = 0; py < HEIGHT; py++) {
+      for (let px = 0; px < WIDTH; px++) {
+        const i3 = (py * WIDTH + px) * 4;
         const ink = mode === 'darkOnLight' ? 255 - lumOf(i3)
           : mode === 'lightOnDark' ? lumOf(i3)
           : td[i3 + 3];
@@ -1504,17 +1532,17 @@
       el.style.display = 'none';
       return;
     }
-    el.style.left = (textOrigin.x / SIZE * 100) + '%';
+    el.style.left = (textOrigin.x / WIDTH * 100) + '%';
     if (textInkBounds) {
       // Fit the line to the actual rendered text (its highest and lowest ink).
-      el.style.top = (textInkBounds.top / SIZE * 100) + '%';
-      el.style.height = ((textInkBounds.bottom - textInkBounds.top + 1) / SIZE * 100) + '%';
+      el.style.top = (textInkBounds.top / HEIGHT * 100) + '%';
+      el.style.height = ((textInkBounds.bottom - textInkBounds.top + 1) / HEIGHT * 100) + '%';
     } else {
       const font = bitmapFonts[document.getElementById('textFont').value];
       const lh = font ? font.lineHeight : 13;
       const lineCount = Math.max(1, document.getElementById('textInput').value.split('\n').length);
-      el.style.top = (textOrigin.y / SIZE * 100) + '%';
-      el.style.height = (lineCount * lh * currentTextScale() * currentTextSpacing() / SIZE * 100) + '%';
+      el.style.top = (textOrigin.y / HEIGHT * 100) + '%';
+      el.style.height = (lineCount * lh * currentTextScale() * currentTextSpacing() / HEIGHT * 100) + '%';
     }
     el.style.display = 'block';
   }
@@ -1526,7 +1554,7 @@
       input.value = lastText;
       input.select();
     }
-    if (!textPreviewBase) textPreviewBase = ctx.getImageData(0, 0, SIZE, SIZE);
+    if (!textPreviewBase) textPreviewBase = ctx.getImageData(0, 0, WIDTH, HEIGHT);
     const width = 240;
     let left = event.clientX + 12;
     if (left + width > window.innerWidth - 8) left = event.clientX - width - 12;
@@ -1588,22 +1616,22 @@
   // current color (or erases to transparent when erase mode is on). Mirroring
   // fills the matching mirrored regions too.
   function bucketAt(pos, color) {
-    const data = ctx.getImageData(0, 0, SIZE, SIZE);
+    const data = ctx.getImageData(0, 0, WIDTH, HEIGHT);
     const paint = color === null
       ? [0, 0, 0, 0]
       : [parseInt(color.slice(1, 3), 16), parseInt(color.slice(3, 5), 16), parseInt(color.slice(5, 7), 16), 255];
     const starts = [[pos.x, pos.y]];
-    if (mirrorV) starts.push([SIZE - 1 - pos.x, pos.y]);
-    if (mirrorH) starts.push([pos.x, SIZE - 1 - pos.y]);
-    if (mirrorV && mirrorH) starts.push([SIZE - 1 - pos.x, SIZE - 1 - pos.y]);
+    if (mirrorV) starts.push([WIDTH - 1 - pos.x, pos.y]);
+    if (mirrorH) starts.push([pos.x, HEIGHT - 1 - pos.y]);
+    if (mirrorV && mirrorH) starts.push([WIDTH - 1 - pos.x, HEIGHT - 1 - pos.y]);
     for (const [sx, sy] of starts) {
-      const o = (sy * SIZE + sx) * 4;
+      const o = (sy * WIDTH + sx) * 4;
       const tr = [data.data[o], data.data[o + 1], data.data[o + 2], data.data[o + 3]];
       if (tr[0] === paint[0] && tr[1] === paint[1] && tr[2] === paint[2] && tr[3] === paint[3]) continue;
       const stack = [[sx, sy]];
       while (stack.length) {
         const [px, py] = stack.pop();
-        const oi = (py * SIZE + px) * 4;
+        const oi = (py * WIDTH + px) * 4;
         if (data.data[oi + 3] !== tr[3] ||
             data.data[oi] !== tr[0] ||
             data.data[oi + 1] !== tr[1] ||
@@ -1613,9 +1641,9 @@
         data.data[oi + 2] = paint[2];
         data.data[oi + 3] = paint[3];
         if (px > 0) stack.push([px - 1, py]);
-        if (px < SIZE - 1) stack.push([px + 1, py]);
+        if (px < WIDTH - 1) stack.push([px + 1, py]);
         if (py > 0) stack.push([px, py - 1]);
-        if (py < SIZE - 1) stack.push([px, py + 1]);
+        if (py < HEIGHT - 1) stack.push([px, py + 1]);
       }
     }
     ctx.putImageData(data, 0, 0);
@@ -1627,10 +1655,10 @@
 
   function canvasPos(event) {
     const rect = canvas.getBoundingClientRect();
-    const scale = rect.width / SIZE;
+    const scale = rect.width / WIDTH;
     return {
-      x: Math.max(0, Math.min(SIZE - 1, Math.floor((event.clientX - rect.left) / scale))),
-      y: Math.max(0, Math.min(SIZE - 1, Math.floor((event.clientY - rect.top) / scale)))
+      x: Math.max(0, Math.min(WIDTH - 1, Math.floor((event.clientX - rect.left) / scale))),
+      y: Math.max(0, Math.min(HEIGHT - 1, Math.floor((event.clientY - rect.top) / scale)))
     };
   }
 
@@ -1638,7 +1666,7 @@
   // dragged outside the canvas edges.
   function canvasPosRaw(event) {
     const rect = canvas.getBoundingClientRect();
-    const scale = rect.width / SIZE;
+    const scale = rect.width / WIDTH;
     return {
       x: Math.floor((event.clientX - rect.left) / scale),
       y: Math.floor((event.clientY - rect.top) / scale)
@@ -1658,14 +1686,14 @@
   // Returns every pixel in the contiguous same-color region around (sx, sy),
   // using the supplied snapshot data (never the live canvas).
   function floodRegion(sx, sy, data) {
-    const o = (sy * SIZE + sx) * 4;
+    const o = (sy * WIDTH + sx) * 4;
     const tr = [data.data[o], data.data[o + 1], data.data[o + 2], data.data[o + 3]];
     const region = [];
-    const seen = new Uint8Array(SIZE * SIZE);
+    const seen = new Uint8Array(WIDTH * HEIGHT);
     const stack = [[sx, sy]];
     while (stack.length) {
       const [px, py] = stack.pop();
-      const idx = py * SIZE + px;
+      const idx = py * WIDTH + px;
       if (seen[idx]) continue;
       seen[idx] = 1;
       const oi = idx * 4;
@@ -1675,9 +1703,9 @@
           data.data[oi + 2] !== tr[2]) continue;
       region.push([px, py]);
       if (px > 0) stack.push([px - 1, py]);
-      if (px < SIZE - 1) stack.push([px + 1, py]);
+      if (px < WIDTH - 1) stack.push([px + 1, py]);
       if (py > 0) stack.push([px, py - 1]);
-      if (py < SIZE - 1) stack.push([px, py + 1]);
+      if (py < HEIGHT - 1) stack.push([px, py + 1]);
     }
     return region;
   }
@@ -1687,15 +1715,15 @@
       clearPreview();
       return;
     }
-    if (!previewSnapshot) previewSnapshot = ctx.getImageData(0, 0, SIZE, SIZE);
+    if (!previewSnapshot) previewSnapshot = ctx.getImageData(0, 0, WIDTH, HEIGHT);
     ctx.putImageData(previewSnapshot, 0, 0);
     ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     if (tool === 'bucket') {
-      const data = ctx.getImageData(0, 0, SIZE, SIZE);
+      const data = ctx.getImageData(0, 0, WIDTH, HEIGHT);
       const starts = [[x, y]];
-      if (mirrorV) starts.push([SIZE - 1 - x, y]);
-      if (mirrorH) starts.push([x, SIZE - 1 - y]);
-      if (mirrorV && mirrorH) starts.push([SIZE - 1 - x, SIZE - 1 - y]);
+      if (mirrorV) starts.push([WIDTH - 1 - x, y]);
+      if (mirrorH) starts.push([x, HEIGHT - 1 - y]);
+      if (mirrorV && mirrorH) starts.push([WIDTH - 1 - x, HEIGHT - 1 - y]);
       for (const [sx, sy] of starts) {
         for (const [px, py] of floodRegion(sx, sy, data)) ctx.fillRect(px, py, 1, 1);
       }
@@ -1706,9 +1734,9 @@
     const size = brushSize;
     const offset = Math.floor(size / 2);
     const positions = [[x, y]];
-    if (mirrorV) positions.push([SIZE - 1 - x, y]);
-    if (mirrorH) positions.push([x, SIZE - 1 - y]);
-    if (mirrorV && mirrorH) positions.push([SIZE - 1 - x, SIZE - 1 - y]);
+    if (mirrorV) positions.push([WIDTH - 1 - x, y]);
+    if (mirrorH) positions.push([x, HEIGHT - 1 - y]);
+    if (mirrorV && mirrorH) positions.push([WIDTH - 1 - x, HEIGHT - 1 - y]);
     for (const [px, py] of positions) {
       if (brushType === 'circle') {
         ctx.beginPath();
@@ -1723,13 +1751,13 @@
   // Returns a copy of `src` shifted by (dx, dy) pixels; pixels moved off the
   // canvas are dropped.
   function shiftedImage(src, dx, dy) {
-    const out = ctx.createImageData(SIZE, SIZE);
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
+    const out = ctx.createImageData(WIDTH, HEIGHT);
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
         const sx = x - dx, sy = y - dy;
-        if (sx < 0 || sx >= SIZE || sy < 0 || sy >= SIZE) continue;
-        const si = (sy * SIZE + sx) * 4;
-        const di = (y * SIZE + x) * 4;
+        if (sx < 0 || sx >= WIDTH || sy < 0 || sy >= HEIGHT) continue;
+        const si = (sy * WIDTH + sx) * 4;
+        const di = (y * WIDTH + x) * 4;
         out.data[di] = src.data[si];
         out.data[di + 1] = src.data[si + 1];
         out.data[di + 2] = src.data[si + 2];
@@ -1744,7 +1772,7 @@
   // copies/cuts (which clears the selection) or presses Escape.
   const selectionOverlay = document.getElementById('selectionOverlay');
   const overlayCtx = selectionOverlay.getContext('2d');
-  const overlayImg = overlayCtx.createImageData(SIZE, SIZE);
+  const overlayImg = overlayCtx.createImageData(WIDTH, HEIGHT);
 
   function rectBounds(a, b) {
     const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
@@ -1753,10 +1781,10 @@
   }
 
   function selectionUnion() {
-    let x0 = SIZE, y0 = SIZE, x1 = -1, y1 = -1;
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        if (selectionMask[y * SIZE + x]) {
+    let x0 = WIDTH, y0 = HEIGHT, x1 = -1, y1 = -1;
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        if (selectionMask[y * WIDTH + x]) {
           if (x < x0) x0 = x;
           if (x > x1) x1 = x;
           if (y < y0) y0 = y;
@@ -1771,10 +1799,10 @@
     const data = overlayImg.data;
     data.fill(0);
     if (selectionMask) {
-      for (let y = 0; y < SIZE; y++) {
-        for (let x = 0; x < SIZE; x++) {
-          if (selectionMask[y * SIZE + x]) {
-            const i = (y * SIZE + x) * 4;
+      for (let y = 0; y < HEIGHT; y++) {
+        for (let x = 0; x < WIDTH; x++) {
+          if (selectionMask[y * WIDTH + x]) {
+            const i = (y * WIDTH + x) * 4;
             data[i] = 255;
             data[i + 1] = 255;
             data[i + 2] = 255;
@@ -1786,7 +1814,7 @@
     if (selectDragRect) {
       for (let y = selectDragRect.y; y < selectDragRect.y + selectDragRect.h; y++) {
         for (let x = selectDragRect.x; x < selectDragRect.x + selectDragRect.w; x++) {
-          const i = (y * SIZE + x) * 4;
+          const i = (y * WIDTH + x) * 4;
           data[i] = 255;
           data[i + 1] = 255;
           data[i + 2] = 255;
@@ -1797,8 +1825,8 @@
     overlayCtx.putImageData(overlayImg, 0, 0);
     const btn = document.getElementById('clearSelectionBtn');
     if (selBounds) {
-      btn.style.left = ((selBounds.x + selBounds.w) / SIZE * 100) + '%';
-      btn.style.top = (selBounds.y / SIZE * 100) + '%';
+      btn.style.left = ((selBounds.x + selBounds.w) / WIDTH * 100) + '%';
+      btn.style.top = (selBounds.y / HEIGHT * 100) + '%';
       btn.style.display = 'block';
     } else {
       btn.style.display = 'none';
@@ -1806,14 +1834,14 @@
   }
 
   function ensureMask() {
-    if (!selectionMask) selectionMask = new Uint8Array(SIZE * SIZE);
+    if (!selectionMask) selectionMask = new Uint8Array(WIDTH * HEIGHT);
   }
 
   function addRectSelection(x0, y0, x1, y1) {
     ensureMask();
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
-        selectionMask[y * SIZE + x] = 1;
+        selectionMask[y * WIDTH + x] = 1;
       }
     }
     selBounds = selectionUnion();
@@ -1834,7 +1862,7 @@
     const img = ctx.getImageData(b.x, b.y, b.w, b.h);
     for (let y = 0; y < b.h; y++) {
       for (let x = 0; x < b.w; x++) {
-        if (!selectionMask[(b.y + y) * SIZE + (b.x + x)]) {
+        if (!selectionMask[(b.y + y) * WIDTH + (b.x + x)]) {
           const i = (y * b.w + x) * 4;
           img.data[i] = 0;
           img.data[i + 1] = 0;
@@ -1848,7 +1876,7 @@
       pushUndo();
       for (let y = 0; y < b.h; y++) {
         for (let x = 0; x < b.w; x++) {
-          if (selectionMask[(b.y + y) * SIZE + (b.x + x)]) ctx.clearRect(b.x + x, b.y + y, 1, 1);
+          if (selectionMask[(b.y + y) * WIDTH + (b.x + x)]) ctx.clearRect(b.x + x, b.y + y, 1, 1);
         }
       }
       refreshInUse();
@@ -1871,13 +1899,13 @@
     }
     const w = floatingCanvas.width;
     const h = floatingCanvas.height;
-    box.style.left = (floatingPos.x / SIZE * 100) + '%';
-    box.style.top = (floatingPos.y / SIZE * 100) + '%';
-    box.style.width = (w / SIZE * 100) + '%';
-    box.style.height = (h / SIZE * 100) + '%';
+    box.style.left = (floatingPos.x / WIDTH * 100) + '%';
+    box.style.top = (floatingPos.y / HEIGHT * 100) + '%';
+    box.style.width = (w / WIDTH * 100) + '%';
+    box.style.height = (h / HEIGHT * 100) + '%';
     box.style.display = 'block';
-    btn.style.left = ((floatingPos.x + w) / SIZE * 100) + '%';
-    btn.style.top = (floatingPos.y / SIZE * 100) + '%';
+    btn.style.left = ((floatingPos.x + w) / WIDTH * 100) + '%';
+    btn.style.top = (floatingPos.y / HEIGHT * 100) + '%';
     btn.style.display = 'block';
     tools.style.left = btn.style.left;
     tools.style.top = btn.style.top;
@@ -1944,11 +1972,11 @@
   function pasteClipboard() {
     if (!clipboard) { status.textContent = 'Nothing to paste yet (Ctrl+C or Ctrl+X first)'; return; }
     const b = selBounds || null;
-    const x = b ? b.x : Math.round((SIZE - clipboard.width) / 2);
-    const y = b ? b.y : Math.round((SIZE - clipboard.height) / 2);
+    const x = b ? b.x : Math.round((WIDTH - clipboard.width) / 2);
+    const y = b ? b.y : Math.round((HEIGHT - clipboard.height) / 2);
     pushUndo();
     floating = clipboard;
-    floatingBase = ctx.getImageData(0, 0, SIZE, SIZE);
+    floatingBase = ctx.getImageData(0, 0, WIDTH, HEIGHT);
     floatingPos = { x: x, y: y };
     floatingStart = null;
     floatingCanvas = document.createElement('canvas');
@@ -2013,7 +2041,7 @@
     }
     if (tool === 'text') {
       textOrigin = pos;
-      if (!textPreviewBase) textPreviewBase = ctx.getImageData(0, 0, SIZE, SIZE);
+      if (!textPreviewBase) textPreviewBase = ctx.getImageData(0, 0, WIDTH, HEIGHT);
       drawing = true;
       canvas.setPointerCapture(event.pointerId);
       updateTextPreview();
@@ -2023,7 +2051,7 @@
     const size = brushSize;
     if (tool === 'line') {
       lineStart = pos;
-      lineSnapshot = ctx.getImageData(0, 0, SIZE, SIZE);
+      lineSnapshot = ctx.getImageData(0, 0, WIDTH, HEIGHT);
       stampBrush(pos.x, pos.y, size, colorFor());
       last = pos;
       drawing = true;
@@ -2033,14 +2061,14 @@
     if (tool === 'circle' || tool === 'square') {
       shapeStart = pos;
       shapeEnd = pos;
-      shapeSnapshot = ctx.getImageData(0, 0, SIZE, SIZE);
+      shapeSnapshot = ctx.getImageData(0, 0, WIDTH, HEIGHT);
       drawing = true;
       canvas.setPointerCapture(event.pointerId);
       return;
     }
     if (tool === 'hand') {
       panStart = pos;
-      panSnapshot = ctx.getImageData(0, 0, SIZE, SIZE);
+      panSnapshot = ctx.getImageData(0, 0, WIDTH, HEIGHT);
       drawing = true;
       canvas.classList.add('cursor-grabbing');
       canvas.setPointerCapture(event.pointerId);
@@ -2428,7 +2456,7 @@
   document.getElementById('undoBtn').addEventListener('click', () => {
     if (undoStack.length === 0) return;
     previewSnapshot = null;
-    redoStack.push(ctx.getImageData(0, 0, SIZE, SIZE));
+    redoStack.push(ctx.getImageData(0, 0, WIDTH, HEIGHT));
     if (redoStack.length > MAX_UNDO) redoStack.shift();
     ctx.putImageData(undoStack.pop(), 0, 0);
     document.getElementById('undoBtn').disabled = undoStack.length === 0;
@@ -2440,7 +2468,7 @@
   document.getElementById('redoBtn').addEventListener('click', () => {
     if (redoStack.length === 0) return;
     previewSnapshot = null;
-    undoStack.push(ctx.getImageData(0, 0, SIZE, SIZE));
+    undoStack.push(ctx.getImageData(0, 0, WIDTH, HEIGHT));
     if (undoStack.length > MAX_UNDO) undoStack.shift();
     ctx.putImageData(redoStack.pop(), 0, 0);
     document.getElementById('undoBtn').disabled = false;
@@ -2454,11 +2482,11 @@
   // drawing so it's centered along a single axis ('horizontal' = left/right,
   // 'vertical' = up/down).
   function centerCanvas(axis) {
-    const data = ctx.getImageData(0, 0, SIZE, SIZE);
-    let minX = SIZE, minY = SIZE, maxX = -1, maxY = -1;
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        if (data.data[(y * SIZE + x) * 4 + 3] !== 0) {
+    const data = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    let minX = WIDTH, minY = HEIGHT, maxX = -1, maxY = -1;
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        if (data.data[(y * WIDTH + x) * 4 + 3] !== 0) {
           if (x < minX) minX = x;
           if (x > maxX) maxX = x;
           if (y < minY) minY = y;
@@ -2471,20 +2499,20 @@
       return;
     }
     const w = maxX - minX + 1, h = maxY - minY + 1;
-    const ox = axis === 'horizontal' ? Math.round((SIZE - w) / 2) - minX : 0;
-    const oy = axis === 'vertical' ? Math.round((SIZE - h) / 2) - minY : 0;
+    const ox = axis === 'horizontal' ? Math.round((WIDTH - w) / 2) - minX : 0;
+    const oy = axis === 'vertical' ? Math.round((HEIGHT - h) / 2) - minY : 0;
     if (ox === 0 && oy === 0) {
       status.textContent = 'Already ' + axis + 'ly centered';
       return;
     }
     pushUndo();
-    const out = ctx.createImageData(SIZE, SIZE);
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
+    const out = ctx.createImageData(WIDTH, HEIGHT);
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
         const sx = x - ox, sy = y - oy;
-        if (sx < 0 || sx >= SIZE || sy < 0 || sy >= SIZE) continue;
-        const si = (sy * SIZE + sx) * 4;
-        const di = (y * SIZE + x) * 4;
+        if (sx < 0 || sx >= WIDTH || sy < 0 || sy >= HEIGHT) continue;
+        const si = (sy * WIDTH + sx) * 4;
+        const di = (y * WIDTH + x) * 4;
         out.data[di] = data.data[si];
         out.data[di + 1] = data.data[si + 1];
         out.data[di + 2] = data.data[si + 2];
@@ -2503,14 +2531,18 @@
     if (floating) cancelFloating();
     if (!document.getElementById('textMenu').classList.contains('hidden')) closeTextMenu();
     clearSelection();
-    const data = ctx.getImageData(0, 0, SIZE, SIZE);
-    const out = ctx.createImageData(SIZE, SIZE);
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        const si = (y * SIZE + x) * 4;
-        const dx = clockwise ? SIZE - 1 - y : y;
-        const dy = clockwise ? x : SIZE - 1 - x;
-        const di = (dy * SIZE + dx) * 4;
+    if (WIDTH !== HEIGHT) {
+      status.textContent = 'Rotate only works on square maps';
+      return;
+    }
+    const data = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    const out = ctx.createImageData(WIDTH, HEIGHT);
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        const si = (y * WIDTH + x) * 4;
+        const dx = clockwise ? WIDTH - 1 - y : y;
+        const dy = clockwise ? x : WIDTH - 1 - x;
+        const di = (dy * WIDTH + dx) * 4;
         out.data[di] = data.data[si];
         out.data[di + 1] = data.data[si + 1];
         out.data[di + 2] = data.data[si + 2];
@@ -2532,14 +2564,14 @@
     if (floating) cancelFloating();
     if (!document.getElementById('textMenu').classList.contains('hidden')) closeTextMenu();
     clearSelection();
-    const data = ctx.getImageData(0, 0, SIZE, SIZE);
-    const out = ctx.createImageData(SIZE, SIZE);
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        const si = (y * SIZE + x) * 4;
-        const dx = axis === 'horizontal' ? SIZE - 1 - x : x;
-        const dy = axis === 'horizontal' ? y : SIZE - 1 - y;
-        const di = (dy * SIZE + dx) * 4;
+    const data = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    const out = ctx.createImageData(WIDTH, HEIGHT);
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        const si = (y * WIDTH + x) * 4;
+        const dx = axis === 'horizontal' ? WIDTH - 1 - x : x;
+        const dy = axis === 'horizontal' ? y : HEIGHT - 1 - y;
+        const di = (dy * WIDTH + dx) * 4;
         out.data[di] = data.data[si];
         out.data[di + 1] = data.data[si + 1];
         out.data[di + 2] = data.data[si + 2];
@@ -2589,7 +2621,7 @@
   });
 
   // ---- Zoom ----
-  const BORDER_SCALE = 1.09375;
+  const BORDER_WIDTH = 6;
   const BORDER_SIZE = 6;
   const zoomSlider = document.getElementById('zoomSlider');
   const zoomLabel = document.getElementById('zoomLabel');
@@ -2605,10 +2637,11 @@
   const edgeRight = document.getElementById('edgeRight');
 
   function applyBorder(scale) {
-    const t = BORDER_SIZE * scale;
-    // The edge art is 128x6 px: at any zoom it renders at natural size, which
-    // exactly spans the gap between the two t-px corners (140s - 12s = 128s).
-    const tile = SIZE * scale;
+    const t = BORDER_WIDTH * scale;
+    // The edge art is 128x6 px (one map wide/tall). Let it tile at its natural
+    // size so each map cell in a wall shows an identical, seamless border rather
+    // than one stretched tile covering the whole edge.
+    const tile = 128 * scale;
 
     cornerTL.style.width = t + 'px';
     cornerTL.style.height = t + 'px';
@@ -2654,12 +2687,13 @@
 
   function applyZoom(percent) {
     const scale = percent / 100;
-    canvas.style.width = (SIZE * scale) + 'px';
-    canvas.style.height = (SIZE * scale) + 'px';
-    selectionOverlay.style.width = (SIZE * scale) + 'px';
-    selectionOverlay.style.height = (SIZE * scale) + 'px';
-    canvasFrame.style.width = (SIZE * scale * BORDER_SCALE) + 'px';
-    canvasFrame.style.height = (SIZE * scale * BORDER_SCALE) + 'px';
+    const t = BORDER_WIDTH * scale;
+    canvas.style.width = (WIDTH * scale) + 'px';
+    canvas.style.height = (HEIGHT * scale) + 'px';
+    selectionOverlay.style.width = (WIDTH * scale) + 'px';
+    selectionOverlay.style.height = (HEIGHT * scale) + 'px';
+    canvasFrame.style.width = (WIDTH * scale + 2 * t) + 'px';
+    canvasFrame.style.height = (HEIGHT * scale + 2 * t) + 'px';
     zoomLabel.textContent = percent + '%';
     applyBorder(scale);
 
@@ -2681,9 +2715,10 @@
     if (!event.ctrlKey) return;
     event.preventDefault();
     const rect = canvas.getBoundingClientRect();
-    const scale = rect.width / SIZE;
-    const cx = (event.clientX - rect.left) / scale;
-    const cy = (event.clientY - rect.top) / scale;
+    const xScale = rect.width / WIDTH;
+    const yScale = rect.height / HEIGHT;
+    const cx = (event.clientX - rect.left) / xScale;
+    const cy = (event.clientY - rect.top) / yScale;
 
     const current = parseInt(zoomSlider.value, 10);
     const next = Math.max(100, Math.min(1600, current + (event.deltaY < 0 ? zoomStep : -zoomStep)));
@@ -2692,9 +2727,10 @@
 
     // Keep the canvas point under the cursor stationary.
     const newRect = canvas.getBoundingClientRect();
-    const newScale = newRect.width / SIZE;
-    canvasWrap.scrollLeft += (cx * scale - cx * newScale) + (rect.left - newRect.left);
-    canvasWrap.scrollTop += (cy * scale - cy * newScale) + (rect.top - newRect.top);
+    const newXScale = newRect.width / WIDTH;
+    const newYScale = newRect.height / HEIGHT;
+    canvasWrap.scrollLeft += (cx * xScale - cx * newXScale) + (rect.left - newRect.left);
+    canvasWrap.scrollTop += (cy * yScale - cy * newYScale) + (rect.top - newRect.top);
   }
 
   [canvas, canvasFrame, canvasWrap].forEach(el =>
@@ -2731,16 +2767,28 @@
     }
   });
 
+  function sizeCanvas(w, h) {
+    WIDTH = w;
+    HEIGHT = h;
+    canvas.width = w;
+    canvas.height = h;
+    selectionOverlay.width = w;
+    selectionOverlay.height = h;
+    applyZoom(parseInt(zoomSlider.value, 10));
+  }
+
   function paintFlat(encoded) {
     const raw = atob(encoded);
     const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-    const img = ctx.getImageData(0, 0, SIZE, SIZE);
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        const color = indexToColor[bytes[y * SIZE + x]];
+    for (let i = 0; i < raw.length; i++) {
+      bytes[i] = raw.charCodeAt(i);
+    }
+    const img = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        const color = indexToColor[bytes[y * WIDTH + x]];
         if (!color) continue;
-        const o = (y * SIZE + x) * 4;
+        const o = (y * WIDTH + x) * 4;
         img.data[o]     = parseInt(color.slice(1, 3), 16);
         img.data[o + 1] = parseInt(color.slice(3, 5), 16);
         img.data[o + 2] = parseInt(color.slice(5, 7), 16);
@@ -2757,9 +2805,14 @@
         if (!res.ok) break;
         const data = await res.json();
         if (data.captured) {
+          if (data.wall) {
+            sizeCanvas(data.width * SIZE, data.height * SIZE);
+          } else {
+            sizeCanvas(SIZE, SIZE);
+          }
           if (data.base) {
             paintFlat(data.base);
-            status.textContent = 'Loaded existing map content';
+            status.textContent = data.wall ? 'Loaded existing wall content' : 'Loaded existing map content';
             refreshInUse();
           }
           return;
@@ -2925,12 +2978,107 @@
   });
 
   // ---- Init ----
-  ctx.clearRect(0, 0, SIZE, SIZE);
+  ctx.clearRect(0, 0, WIDTH, HEIGHT);
   selectColor(PALETTE[0].c);
   refreshInUse();
   loadTextFonts();
 
   const token = new URLSearchParams(location.search).get('token') || '';
+
+  // ---- Map lock ----
+  // For single maps the lock is a simple on/off. For walls the lock covers a
+  // grid of editable cells (all unowned or all owned by the editor), so the
+  // toggle reflects the aggregate: all-own (locked), all-unowned (unlocked),
+  // or mixed (striped). Toggling applies the matched state to every cell it
+  // can act on.
+  const lockToggle = document.getElementById('lockToggle');
+  const lockIcon = document.getElementById('lockIcon');
+  let mapLocked = false;
+  let lockCanToggle = false;
+  let wallMode = null;   // 'locked' | 'unlocked' | 'mixed' (null = single map)
+
+  function renderLock() {
+    if (wallMode) {
+      const isLocked = wallMode === 'locked';
+      lockToggle.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
+      lockToggle.classList.toggle('active', isLocked);
+      lockToggle.classList.toggle('mixed', wallMode === 'mixed');
+      lockIcon.src = wallMode === 'locked' ? '/img/icons/lock.svg' : '/img/icons/lock-open.svg';
+      if (wallMode === 'locked') {
+        lockToggle.title = 'All maps here are locked to you. Click to unlock all of them.';
+      } else if (wallMode === 'unlocked') {
+        lockToggle.title = 'No maps here are locked. Click to lock all of them.';
+      } else {
+        lockToggle.title = 'Mixed: some maps are locked and some are not. Click to lock all unlocked maps.';
+      }
+    } else {
+      lockToggle.setAttribute('aria-pressed', mapLocked ? 'true' : 'false');
+      lockToggle.classList.toggle('active', mapLocked);
+      lockToggle.classList.remove('mixed');
+      lockIcon.src = mapLocked ? '/img/icons/lock.svg' : '/img/icons/lock-open.svg';
+      lockToggle.title = mapLocked
+        ? 'This map is locked. Only you can edit it until unlocked. Click to unlock.'
+        : 'Lock this map so only you can edit it';
+    }
+    lockToggle.disabled = !lockCanToggle;
+  }
+
+  async function loadLock() {
+    try {
+      const res = await fetch('/lock?token=' + encodeURIComponent(token));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.wall) {
+        lockCanToggle = !!data.canToggle;
+        if (data.locked) wallMode = 'locked';
+        else if (data.unlocked) wallMode = 'unlocked';
+        else wallMode = 'mixed';
+        lockToggle.style.display = '';
+      } else {
+        wallMode = null;
+        mapLocked = !!data.locked;
+        lockCanToggle = !!data.canToggle;
+        if (data.owner && data.locked) {
+          lockToggle.title = 'Locked by ' + data.owner + '. Only they can edit until unlocked.';
+        }
+      }
+      renderLock();
+    } catch (e) {
+      // ignore: lock UI is best-effort
+    }
+  }
+
+  lockToggle.addEventListener('click', async () => {
+    if (!lockCanToggle) return;
+    // For walls: if not every cell is owned by the editor, lock the unowned
+    // ones; otherwise unlock all the cells owned by the editor.
+    const targetLocked = wallMode ? (wallMode !== 'locked') : !mapLocked;
+    try {
+      const res = await fetch('/lock?token=' + encodeURIComponent(token), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locked: targetLocked })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.message || 'Failed to update the map lock.');
+        return;
+      }
+      if (wallMode) {
+        // Re-read the aggregate so mixed/all states settle correctly after
+        // locking or unlocking each acting cell.
+        await loadLock();
+      } else {
+        mapLocked = !mapLocked;
+        renderLock();
+      }
+    } catch (e) {
+      alert('Failed to update the map lock.');
+    }
+  });
+
+  loadLock();
+
   loadExistingContent(token).then(() => checkForDraft(token));
 })();
 </script>

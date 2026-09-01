@@ -2,21 +2,24 @@ package io.github.willits.mapArtist;
 
 import org.bukkit.entity.Item;
 import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.UUID;
 
 /**
- * Protects MapArtist maps (and the item frames holding them) from destruction.
- * Three independent switches:
- *  - map-protection-explosions: frames holding drawing maps survive explosions.
+ * Protects MapArtist maps from destruction:
  *  - map-protection-itemdestruction: loose/dropped MapArtist map items are
  *    immune to fire, lava, cactus, explosions and other item-deleters, sort of
  *    like netherite. Only applies while the map is an item entity.
- *  - map-protection-anti-break-when-locked: the frame itself (not the block
- *    behind it) cannot be broken by damaging it.
+ *  - map-protection-anti-break-when-locked: the frame holding a locked map
+ *    cannot be broken by damaging it. The owner of the locked map (and admins)
+ *    may still break their own locked map out of the frame.
  */
 public final class MapProtectionListener implements Listener {
 
@@ -24,10 +27,6 @@ public final class MapProtectionListener implements Listener {
 
     public MapProtectionListener(MapArtist plugin) {
         this.plugin = plugin;
-    }
-
-    private boolean explosionsEnabled() {
-        return plugin.getConfig().getBoolean("map-protection-explosions", true);
     }
 
     private boolean itemDestructionEnabled() {
@@ -40,22 +39,16 @@ public final class MapProtectionListener implements Listener {
 
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        if (event.getEntity() instanceof ItemFrame frame) {
-            if (explosionsEnabled() && isExplosion(event.getCause())
-                    && MapWallDetector.isCustomMap(frame.getItem())) {
-                event.setCancelled(true);
-            }
-            return;
-        }
         if (event.getEntity() instanceof Item item && itemDestructionEnabled()) {
-            if ((isExplosion(event.getCause())
-                    || event.getCause() == EntityDamageEvent.DamageCause.FIRE
+            if ((event.getCause() == EntityDamageEvent.DamageCause.FIRE
                     || event.getCause() == EntityDamageEvent.DamageCause.FIRE_TICK
                     || event.getCause() == EntityDamageEvent.DamageCause.HOT_FLOOR
                     || event.getCause() == EntityDamageEvent.DamageCause.LAVA
                     || event.getCause() == EntityDamageEvent.DamageCause.CONTACT
                     || event.getCause() == EntityDamageEvent.DamageCause.DROWNING
-                    || event.getCause() == EntityDamageEvent.DamageCause.SUFFOCATION)
+                    || event.getCause() == EntityDamageEvent.DamageCause.SUFFOCATION
+                    || event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION
+                    || event.getCause() == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION)
                     && MapWallDetector.isCustomMap(item.getItemStack())) {
                 event.setCancelled(true);
             }
@@ -76,18 +69,27 @@ public final class MapProtectionListener implements Listener {
         if (!(event.getEntity() instanceof ItemFrame frame)) {
             return;
         }
-        if (!MapWallDetector.isCustomMap(frame.getItem())) {
+        if (!antiBreakEnabled()) {
             return;
         }
-        // The frame can neither be broken by hand nor destroyed by an
-        // explosion. This never touches the block behind the frame.
-        if (antiBreakEnabled() || (explosionsEnabled() && isExplosion(event.getCause()))) {
-            event.setCancelled(true);
+        ItemStack item = frame.getItem();
+        org.bukkit.map.MapView view = MapWallDetector.mapViewOf(item);
+        if (view == null) {
+            return;
         }
-    }
-
-    private static boolean isExplosion(EntityDamageEvent.DamageCause cause) {
-        return cause == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION
-                || cause == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION;
+        int mapId = view.getId();
+        if (plugin.getLockStore() == null || !plugin.getLockStore().isLocked(mapId)) {
+            return;
+        }
+        if (event.getDamager() instanceof Player damager) {
+            UUID owner = plugin.getLockStore().ownerOf(mapId);
+            if (owner != null && owner.equals(damager.getUniqueId())) {
+                return; // the owner may break their own locked map out of the frame
+            }
+            if (plugin.isAdmin(damager.getUniqueId())) {
+                return; // admins may also break locked maps out
+            }
+        }
+        event.setCancelled(true);
     }
 }

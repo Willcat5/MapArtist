@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.github.willits.mapArtist.DrawingStore;
+import io.github.willits.mapArtist.MapLockStore;
 import io.github.willits.mapArtist.TokenManager;
 import io.github.willits.mapArtist.MapArtist;
 import org.bukkit.Bukkit;
@@ -56,6 +57,7 @@ public final class WebServer {
         server.createContext("/draw", this::handleDraw);
         server.createContext("/base", this::handleBase);
         server.createContext("/submit", this::handleSubmit);
+        server.createContext("/lock", this::handleLock);
         server.createContext("/export", this::handleExport);
         server.createContext("/import", this::handleImport);
         server.createContext("/draft", this::handleDraft);
@@ -167,6 +169,10 @@ public final class WebServer {
                 respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
                 return;
             }
+            if (session.grid() != null) {
+                handleWallBase(exchange, token, session);
+                return;
+            }
             DrawingStore store = plugin.getDrawingStore();
             int mapId = session.mapId();
             TokenManager tokenManager = plugin.getTokenManager();
@@ -213,6 +219,55 @@ public final class WebServer {
         }
     }
 
+    /**
+     * Serves the whole wall grid as one large composite image, plus the grid
+     * geometry (width/height in cells and the editable cell layout) so the
+     * editor knows how big to make its canvas. Omitted (locked) cells are left
+     * transparent. The flat image is WIDTH*HEIGHT pixels (W=width*128, H=height*128).
+     */
+    private void handleWallBase(HttpExchange exchange, String token, TokenManager.Session session) throws IOException {
+        TokenManager.GridSession grid = session.grid();
+        DrawingStore store = plugin.getDrawingStore();
+        final int MAP = 128;
+        int pixelsW = grid.width() * MAP;
+        int pixelsH = grid.height() * MAP;
+
+        byte[] flat = new byte[pixelsW * pixelsH];
+        boolean anyContent = false;
+        for (TokenManager.Cell cell : grid.cells()) {
+            byte[][] composite = merge(store.getBase(cell.mapId()), store.get(cell.mapId()));
+            if (composite != null) {
+                for (int y = 0; y < MAP; y++) {
+                    for (int x = 0; x < MAP; x++) {
+                        byte p = composite[y][x];
+                        if ((p & 0xFF) != 0) {
+                            anyContent = true;
+                        }
+                        int fx = cell.col() * MAP + x;
+                        int fy = cell.row() * MAP + y;
+                        flat[fy * pixelsW + fx] = p;
+                    }
+                }
+            }
+        }
+        plugin.getTokenManager().setShown(token, anyContent ? toByte2(pixelsW, pixelsH, flat) : null);
+
+        StringBuilder cellsJson = new StringBuilder("[");
+        for (int i = 0; i < grid.cells().size(); i++) {
+            TokenManager.Cell c = grid.cells().get(i);
+            if (i > 0) {
+                cellsJson.append(',');
+            }
+            cellsJson.append('[').append(c.mapId()).append(',').append(c.row()).append(',').append(c.col()).append(']');
+        }
+        cellsJson.append(']');
+
+        String encoded = Base64.getEncoder().encodeToString(flat);
+        respondJson(exchange, 200, "{\"captured\":true,\"wall\":true,\"width\":"
+                + grid.width() + ",\"height\":" + grid.height()
+                + ",\"cells\":" + cellsJson + ",\"base\":\"" + encoded + "\"}");
+    }
+
     private static byte[][] merge(byte[][] base, byte[][] drawing) {
         byte[][] out = new byte[128][128];
         for (int y = 0; y < 128; y++) {
@@ -249,6 +304,14 @@ public final class WebServer {
         return out;
     }
 
+    private static byte[][] toByte2(int w, int h, byte[] flat) {
+        byte[][] out = new byte[h][w];
+        for (int y = 0; y < h; y++) {
+            System.arraycopy(flat, y * w, out[y], 0, w);
+        }
+        return out;
+    }
+
     private void handleSubmit(HttpExchange exchange) throws IOException {
         try {
             if (!"POST".equals(exchange.getRequestMethod())) {
@@ -268,7 +331,16 @@ public final class WebServer {
                 return;
             }
 
+            if (session.grid() != null) {
+                handleWallSubmit(exchange, token, session, shown);
+                return;
+            }
+
             int mapId = session.mapId();
+            if (!plugin.canEdit(mapId, session.player())) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"This map is locked and cannot be edited by anyone except who locked it.\"}");
+                return;
+            }
             if (plugin.getConfig().getBoolean("require-holding-to-submit", true)
                     && !isHoldingMap(session.player(), mapId)) {
                 respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"You must be holding the map in your hand to submit changes\"}");
@@ -327,6 +399,226 @@ public final class WebServer {
         }
     }
 
+    /**
+     * Saves a wall (multi-map) submission. The incoming image is the whole grid
+     * merged into one W*128 x H*128 canvas. It is sliced back into per-cell
+     * 128x128 tiles and each editable cell is written. Locked cells were omitted
+     * from the session and never appear in the image, so they are not touched.
+     * Instead of the "holding the map" check, the player must be within
+     * wall-proximity-blocks of the wall center. The session is consumed (closed).
+     */
+    private void handleWallSubmit(HttpExchange exchange, String token, TokenManager.Session session, byte[][] shown)
+            throws IOException {
+        TokenManager.GridSession grid = session.grid();
+        if (!withinProximity(session.player(), grid)) {
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"You must be within " 
+                    + plugin.getConfig().getInt("wall-proximity-blocks", 10)
+                    + " blocks of the map wall to submit changes\"}");
+            return;
+        }
+        TokenManager.Session consumed = plugin.getTokenManager().consume(token);
+        if (consumed == null) {
+            respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Session expired\"}");
+            return;
+        }
+
+        final int MAP = 128;
+        int pixelsW = grid.width() * MAP;
+        int pixelsH = grid.height() * MAP;
+
+        String body = new String(readBody(exchange), StandardCharsets.UTF_8);
+        JsonObject root = JsonParser.parseString(body).getAsJsonObject();
+        String imageData = root.get("image").getAsString();
+        byte[] png = Base64.getDecoder().decode(imageData);
+
+        BufferedImage image;
+        try (InputStream in = new ByteArrayInputStream(png)) {
+            image = javax.imageio.ImageIO.read(in);
+        }
+        if (image == null) {
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Not a valid image\"}");
+            return;
+        }
+        if (image.getWidth() != pixelsW || image.getHeight() != pixelsH) {
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Image size does not match the wall grid\"}");
+            return;
+        }
+
+        byte[][] submitted = toPaletteBytesAt(image, pixelsW, pixelsH);
+        DrawingStore store = plugin.getDrawingStore();
+        java.util.List<Integer> savedIds = new java.util.ArrayList<>();
+        for (TokenManager.Cell cell : grid.cells()) {
+            byte[][] cellPixels = new byte[MAP][MAP];
+            for (int y = 0; y < MAP; y++) {
+                System.arraycopy(submitted[y + cell.row() * MAP], cell.col() * MAP, cellPixels[y], 0, MAP);
+            }
+            byte[][] cellShown = sliceShown(shown, grid, cell, MAP);
+            byte[][] oldStrokes = store.get(cell.mapId());
+            byte[][] strokes = mergeEdits(cellPixels, cellShown, oldStrokes);
+
+            int colored = 0;
+            for (byte[] row : strokes) {
+                for (byte p : row) {
+                    if ((p & 0xFF) != 0) colored++;
+                }
+            }
+            if (colored == 0) {
+                store.remove(cell.mapId());
+                plugin.deleteDrawing(cell.mapId());
+            } else {
+                store.put(cell.mapId(), strokes);
+                plugin.saveDrawing(cell.mapId(), strokes);
+            }
+            plugin.attachRenderer(cell.mapId());
+            plugin.deleteDraft(session.player(), cell.mapId());
+            savedIds.add(cell.mapId());
+            logger.info("Saved wall cell map #" + cell.mapId() + " (" + colored + " colored pixels)");
+        }
+        plugin.logEdits(session.player(), savedIds);
+        plugin.refreshFrames(grid.world(), savedIds);
+        respondJson(exchange, 200, "{\"status\":\"ok\"}");
+    }
+
+    /** Slices a cell-sized region out of the big shown image (or null). */
+    private static byte[][] sliceShown(byte[][] shown, TokenManager.GridSession grid, TokenManager.Cell cell, int map) {
+        if (shown == null) {
+            return null;
+        }
+        byte[][] out = new byte[map][map];
+        for (int y = 0; y < map; y++) {
+            System.arraycopy(shown[y + cell.row() * map], cell.col() * map, out[y], 0, map);
+        }
+        return out;
+    }
+
+    /** Whether the player is within wall-proximity-blocks of the grid center. */
+    private boolean withinProximity(UUID playerId, TokenManager.GridSession grid) {
+        int radius = plugin.getConfig().getInt("wall-proximity-blocks", 10);
+        if (radius <= 0) {
+            return true;
+        }
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null || !player.getWorld().getName().equals(grid.world())) {
+            return false;
+        }
+        org.bukkit.Location loc = player.getLocation();
+        double dx = loc.getX() - grid.centerX();
+        double dy = loc.getY() - grid.centerY();
+        double dz = loc.getZ() - grid.centerZ();
+        return (dx * dx + dy * dy + dz * dz) <= (double) radius * radius;
+    }
+
+    /**
+     * Reads or toggles the lock on the session's map. GET returns the current
+     * lock state and owner name. POST with {"locked":true} locks the map to the
+     * session's player; {"locked":false} unlocks it in place of the owner.
+     * Only the current owner (or an admin) may change the lock, enforced here
+     * server-side.
+     */
+    private void handleLock(HttpExchange exchange) throws IOException {
+        try {
+            String token = queryParam(exchange, "token");
+            if (token == null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing token\"}");
+                return;
+            }
+            TokenManager.Session session = plugin.getTokenManager().peek(token);
+            if (session == null) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+            if (session.grid() != null) {
+                handleWallLock(exchange, session);
+                return;
+            }
+            int mapId = session.mapId();
+            MapLockStore locks = plugin.getLockStore();
+            boolean locked = locks.isLocked(mapId);
+            String ownerName = locks.ownerName(mapId);
+
+            if (!"POST".equals(exchange.getRequestMethod())) {
+                respondJson(exchange, 200, "{\"locked\":" + locked
+                        + ",\"owner\":" + (ownerName == null ? "null" : "\"" + ownerName + "\"")
+                        + ",\"canToggle\":" + plugin.canEdit(mapId, session.player()) + "}");
+                return;
+            }
+
+            if (!plugin.canEdit(mapId, session.player())) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"This map is locked and cannot be edited by anyone except who locked it.\"}");
+                return;
+            }
+
+            String body = new String(readBody(exchange), StandardCharsets.UTF_8);
+            boolean wantLocked = JsonParser.parseString(body).getAsJsonObject().get("locked").getAsBoolean();
+            if (wantLocked) {
+                locks.lock(mapId, session.player(), session.player());
+            } else {
+                locks.unlock(mapId, session.player());
+            }
+            respondJson(exchange, 200, "{\"status\":\"ok\",\"locked\":" + wantLocked + "}");
+        } catch (Exception e) {
+            logger.warning("Lock request failed: " + e.getMessage());
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request: " + e.getMessage() + "\"}");
+        }
+    }
+
+    /**
+     * Handles locking for a wall (multi-map) session. Editable cells in a wall
+     * session are only those the player can edit, so every cell is either
+     * unowned (unlocked) or locked to this editor. A GET reports the aggregate
+     * state (all owned-by-me, all unowned, or mixed) so the editor can show a
+     * lock, open-lock, or striped indicator. A POST {@code locked:true} locks
+     * every unowned cell (claiming it); {@code locked:false} unlocks every cell
+     * owned by the editor. Cells owned by someone else can't appear and are
+     * never touched.
+     */
+    private void handleWallLock(HttpExchange exchange, TokenManager.Session session) throws IOException {
+        TokenManager.GridSession grid = session.grid();
+        MapLockStore locks = plugin.getLockStore();
+        java.util.UUID me = session.player();
+
+        int total = 0, mine = 0, unowned = 0;
+        for (TokenManager.Cell cell : grid.cells()) {
+            total++;
+            java.util.UUID owner = locks.ownerOf(cell.mapId());
+            if (owner == null) {
+                unowned++;
+            } else if (owner.equals(me)) {
+                mine++;
+            }
+        }
+        boolean allMine = total > 0 && mine == total;
+        boolean allUnowned = total > 0 && unowned == total;
+        boolean mixed = total > 0 && !allMine && !allUnowned;
+        boolean canToggle = unowned > 0 || mine > 0;
+
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            respondJson(exchange, 200, "{\"wall\":true,\"locked\":" + allMine
+                    + ",\"unlocked\":" + allUnowned + ",\"mixed\":" + mixed
+                    + ",\"canToggle\":" + canToggle
+                    + ",\"total\":" + total + ",\"owned\":" + mine + ",\"unowned\":" + unowned + "}");
+            return;
+        }
+
+        String body = new String(readBody(exchange), StandardCharsets.UTF_8);
+        boolean wantLocked = JsonParser.parseString(body).getAsJsonObject().get("locked").getAsBoolean();
+        if (wantLocked) {
+            for (TokenManager.Cell cell : grid.cells()) {
+                if (locks.ownerOf(cell.mapId()) == null) {
+                    locks.lock(cell.mapId(), me, me);
+                }
+            }
+        } else {
+            for (TokenManager.Cell cell : grid.cells()) {
+                java.util.UUID owner = locks.ownerOf(cell.mapId());
+                if (owner != null && owner.equals(me)) {
+                    locks.unlock(cell.mapId(), me);
+                }
+            }
+        }
+        respondJson(exchange, 200, "{\"status\":\"ok\"}");
+    }
+
     private void handleExport(HttpExchange exchange) throws IOException {
         try {
             String token = queryParam(exchange, "token");
@@ -337,6 +629,10 @@ public final class WebServer {
             TokenManager.Session session = plugin.getTokenManager().peek(token);
             if (session == null) {
                 respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+            if (session.grid() != null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Export isn't available for wall (multi-map) sessions.\"}");
                 return;
             }
             byte[][] pixels = plugin.getDrawingStore().get(session.mapId());
@@ -374,7 +670,15 @@ public final class WebServer {
                 respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
                 return;
             }
+            if (session.grid() != null) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Import isn't available for wall (multi-map) sessions.\"}");
+                return;
+            }
             int mapId = session.mapId();
+            if (!plugin.canEdit(mapId, session.player())) {
+                respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"This map is locked and cannot be edited by anyone except who locked it.\"}");
+                return;
+            }
 
             byte[] flat = readBody(exchange);
             if (flat.length != 128 * 128) {
@@ -417,6 +721,10 @@ public final class WebServer {
             TokenManager.Session session = plugin.getTokenManager().peek(token);
             if (session == null) {
                 respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Invalid or expired token\"}");
+                return;
+            }
+            if (session.grid() != null) {
+                respondJson(exchange, 200, "{\"exists\":false}");
                 return;
             }
             UUID player = session.player();
@@ -511,6 +819,18 @@ public final class WebServer {
         for (int y = 0; y < 128; y++) {
             for (int x = 0; x < 128; x++) {
                 int argb = scaled.getRGB(x, y);
+                pixels[y][x] = MapPalette.matchColor(new Color(argb, true));
+            }
+        }
+        return pixels;
+    }
+
+    /** Converts a submitted image at its native size (used for wall grids). */
+    private static byte[][] toPaletteBytesAt(BufferedImage image, int w, int h) {
+        byte[][] pixels = new byte[h][w];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = image.getRGB(x, y);
                 pixels[y][x] = MapPalette.matchColor(new Color(argb, true));
             }
         }

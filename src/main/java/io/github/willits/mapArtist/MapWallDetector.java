@@ -104,11 +104,22 @@ public final class MapWallDetector {
         }
 
         // Map IDs in row-major order, top row first, and the shared frame
-        // rotation (null when frames are rotated inconsistently).
+        // rotation (null when frames are rotated inconsistently). The order in
+        // both axes depends on the frame facing so the assembled wall reads the
+        // way the viewer sees it from the frame's front. North/East-facing walls
+        // are mirror images of their world X/Z when viewed head-on, and floor
+        // (UP) maps are observed from above so north runs down their rows.
+        boolean flipH = switch (facing) {
+            case NORTH, EAST -> true;
+            default -> false; // SOUTH, WEST, UP, DOWN
+        };
+        boolean flipV = facing == BlockFace.UP;
         List<Integer> mapIds = new ArrayList<>(component.size());
         Set<Rotation> rotations = new HashSet<>();
-        for (int v = maxV; v >= minV; v--) {
-            for (int h = minH; h <= maxH; h++) {
+        boolean ascendingV = flipV;
+        for (int vi = 0; vi < height; vi++) {
+            int v = ascendingV ? minV + vi : maxV - vi;
+            for (int h = flipH ? maxH : minH, step = flipH ? -1 : 1, n = 0; n < width; n++, h += step) {
                 Point cell = new Point(h, v);
                 mapIds.add(cellMapIds.get(cell));
                 rotations.add(cellRotations.get(cell));
