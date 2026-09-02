@@ -7,6 +7,7 @@
 - [x] Add map locking: the player who locks a map (via a web-editor toggle) becomes the only one who can edit it until unlocked; non-owners blocked at open and server-side on submit/import; locked cells skipped on walls; persisted to locks.tsv. Admins don't bypass the lock — instead they can reassign ownership via /mapartist setowner
 - [x] Add multi-map canvas support in the web editor for wall-sized drawings (one big canvas spanning the detected grid; locked cells omitted; submit slices back into per-cell maps; wall-proximity-blocks replaces the holding check; requires north-aligned frames)
 - [x] Wall locking in the editor: lock toggle locks all unowned wall cells or unlocks all cells owned by the editor; mixed state shows a striped/dashed toggle; others' cells are never touched
+- [x] Wall export/import: reuses the existing Export/Import buttons; exporting a wall produces a zip of per-cell .dat files plus an arrangement.json describing the grid; importing restores the wall cells
 - [x] Fix MapCopyListener.onMapInitialize hijacking all new maps (new maps now keep vanilla behaviour until opened with the paintbrush; conversion happens on brush use, incl. map walls)
 - [ ] Add a README.MD with installation instructions, usage, and config options (and maybe a sick video...)
 

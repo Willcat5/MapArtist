@@ -395,7 +395,7 @@ public final class WebServer {
             respondJson(exchange, 200, "{\"status\":\"ok\"}");
         } catch (Exception e) {
             logger.warning("Submit failed: " + e.getMessage());
-            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request: " + e.getMessage() + "\"}");
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request\"}");
         }
     }
 
@@ -558,7 +558,7 @@ public final class WebServer {
             respondJson(exchange, 200, "{\"status\":\"ok\",\"locked\":" + wantLocked + "}");
         } catch (Exception e) {
             logger.warning("Lock request failed: " + e.getMessage());
-            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request: " + e.getMessage() + "\"}");
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request\"}");
         }
     }
 
@@ -632,7 +632,7 @@ public final class WebServer {
                 return;
             }
             if (session.grid() != null) {
-                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Export isn't available for wall (multi-map) sessions.\"}");
+                handleWallExport(exchange, session);
                 return;
             }
             byte[][] pixels = plugin.getDrawingStore().get(session.mapId());
@@ -653,6 +653,50 @@ public final class WebServer {
         }
     }
 
+    /**
+     * Exports a wall (multi-map) session as a zip: one .dat per editable cell
+     * plus an "arrangement.json" describing the grid layout and the cell's map
+     * ids in row-major order. The zip can be re-imported to restore the wall.
+     */
+    private void handleWallExport(HttpExchange exchange, TokenManager.Session session) throws IOException {
+        TokenManager.GridSession grid = session.grid();
+        DrawingStore store = plugin.getDrawingStore();
+        java.util.List<TokenManager.Cell> cells = grid.cells();
+
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(baos)) {
+            StringBuilder sb = new StringBuilder("{\"w\":").append(grid.width())
+                    .append(",\"h\":").append(grid.height()).append(",\"mapIds\":[");
+            for (int i = 0; i < cells.size(); i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                sb.append(cells.get(i).mapId());
+            }
+            sb.append("]}");
+            zos.putNextEntry(new java.util.zip.ZipEntry("arrangement.json"));
+            zos.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+
+            for (int i = 0; i < cells.size(); i++) {
+                byte[][] pixels = store.get(cells.get(i).mapId());
+                byte[] flat = new byte[128 * 128];
+                if (pixels != null) {
+                    for (int y = 0; y < 128; y++) {
+                        System.arraycopy(pixels[y], 0, flat, y * 128, 128);
+                    }
+                }
+                zos.putNextEntry(new java.util.zip.ZipEntry("cell_" + i + ".dat"));
+                zos.write(flat);
+                zos.closeEntry();
+            }
+        }
+        byte[] zip = baos.toByteArray();
+        exchange.getResponseHeaders().set("Content-Disposition",
+                "attachment; filename=\"wall-" + grid.width() + "x" + grid.height() + ".zip\"");
+        respond(exchange, 200, "application/zip", zip);
+    }
+
     private void handleImport(HttpExchange exchange) throws IOException {
         try {
             if (!"POST".equals(exchange.getRequestMethod())) {
@@ -671,7 +715,7 @@ public final class WebServer {
                 return;
             }
             if (session.grid() != null) {
-                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Import isn't available for wall (multi-map) sessions.\"}");
+                handleWallImport(exchange, session);
                 return;
             }
             int mapId = session.mapId();
@@ -707,8 +751,79 @@ public final class WebServer {
             respondJson(exchange, 200, "{\"status\":\"ok\"}");
         } catch (Exception e) {
             logger.warning("Import failed: " + e.getMessage());
-            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request: " + e.getMessage() + "\"}");
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Bad request\"}");
         }
+    }
+
+    /**
+     * Imports a wall (multi-map) session from a zip produced by
+     * {@link #handleWallExport}. The zip contains "arrangement.json" (grid
+     * dims + map ids in row-major order) and one "cell_N.dat" per editable
+     * cell. Each .dat is applied to the session's cell in matching order. The
+     * imported mapIds must line up with the current session cells.
+     */
+    private void handleWallImport(HttpExchange exchange, TokenManager.Session session) throws IOException {
+        TokenManager.GridSession grid = session.grid();
+        byte[] zipBytes = readBody(exchange);
+        java.util.Map<String, byte[]> entries = new java.util.HashMap<>();
+        try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = zis.read(buf)) != -1) {
+                    out.write(buf, 0, n);
+                }
+                entries.put(entry.getName(), out.toByteArray());
+            }
+        } catch (java.util.zip.ZipException e) {
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Not a valid wall .zip file\"}");
+            return;
+        }
+
+        byte[] arrBytes = entries.get("arrangement.json");
+        if (arrBytes == null) {
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing arrangement.json in zip\"}");
+            return;
+        }
+        JsonObject arrangement;
+        try {
+            arrangement = JsonParser.parseString(new String(arrBytes, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (RuntimeException e) {
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Invalid arrangement.json in zip\"}");
+            return;
+        }
+        int count = arrangement.getAsJsonArray("mapIds").size();
+        if (count != grid.cells().size()) {
+            respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Wall zip has " + count
+                    + " cells but this session has " + grid.cells().size() + ".\"}");
+            return;
+        }
+
+        DrawingStore store = plugin.getDrawingStore();
+        java.util.List<Integer> savedIds = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            byte[] dat = entries.get("cell_" + i + ".dat");
+            if (dat == null || dat.length != 128 * 128) {
+                respondJson(exchange, 400, "{\"status\":\"error\",\"message\":\"Missing or invalid cell_" + i + ".dat in zip\"}");
+                return;
+            }
+            byte[][] pixels = new byte[128][128];
+            for (int y = 0; y < 128; y++) {
+                System.arraycopy(dat, y * 128, pixels[y], 0, 128);
+            }
+            int mapId = grid.cells().get(i).mapId();
+            store.put(mapId, pixels);
+            plugin.saveDrawing(mapId, pixels);
+            plugin.attachRenderer(mapId);
+            plugin.deleteDraft(session.player(), mapId);
+            savedIds.add(mapId);
+            logger.info("Imported wall cell map #" + mapId);
+        }
+        plugin.logEdits(session.player(), savedIds);
+        plugin.refreshFrames(grid.world(), savedIds);
+        respondJson(exchange, 200, "{\"status\":\"ok\"}");
     }
 
     private void handleDraft(HttpExchange exchange) throws IOException {

@@ -84,6 +84,39 @@ public final class MapInteractListener implements Listener {
         player.spigot().sendMessage(line);
     }
 
+    /**
+     * Asks the player to confirm converting the vanilla maps of a wall into
+     * MapArtist drawing maps. Mirrors {@link #sendConversionPrompt} for single
+     * maps, but covers several maps at once and reuses the same /mapartist
+     * confirm|cancel commands.
+     */
+    static void sendWallConversionPrompt(Player player, java.util.List<Integer> vanilla) {
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.WHITE
+                + "This wall has " + vanilla.size()
+                + " vanilla map(s) that aren't paintable yet.");
+        player.sendMessage(ChatColor.GRAY
+                + "Converting map(s) #" + String.join(", ",
+                vanilla.stream().map(String::valueOf).toList())
+                + " will remove their vanilla mapping. Their current pixels will be erased. This can't be undone.");
+
+        TextComponent confirm = new TextComponent("[Confirm]");
+        confirm.setColor(ChatColor.GREEN);
+        confirm.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/mapartist confirm"));
+        confirm.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("Click to convert the wall maps into MapArtist drawing maps")));
+
+        TextComponent cancel = new TextComponent("[Cancel]");
+        cancel.setColor(ChatColor.RED);
+        cancel.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/mapartist cancel"));
+        cancel.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text("Click to cancel")));
+
+        TextComponent line = new TextComponent("");
+        line.addExtra(confirm);
+        line.addExtra("  ");
+        line.addExtra(cancel);
+        player.spigot().sendMessage(line);
+    }
+
     static void sendLink(Player player, String url) {
         TextComponent link = new TextComponent("[Open Drawing Editor]");
         link.setColor(ChatColor.AQUA);

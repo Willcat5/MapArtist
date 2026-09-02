@@ -145,8 +145,8 @@
     border-right: 1px solid #333;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 16px;
+    gap: 10px;
+    padding: 12px;
     overflow-y: auto;
   }
 
@@ -158,15 +158,15 @@
   }
 
   .tool-section h3 {
-    font-size: 12px;
+    font-size: 11px;
     color: #888;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   .tool-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 5px;
+    gap: 4px;
   }
   .tool-grid h3 {
     grid-column: 1 / -1;
@@ -235,13 +235,13 @@
 
   .mirror-row {
     display: flex;
-    gap: 6px;
+    gap: 4px;
   }
   .mirror-row .icon-toggle { flex: 1; }
 
   .icon-row {
     display: flex;
-    gap: 5px;
+    gap: 4px;
   }
   .icon-row .tool-icon-btn {
     flex: 1;
@@ -254,6 +254,7 @@
     pointer-events: none;
   }
   #lockToggle {
+    width: 100%;
     height: 40px;
   }
   #lockToggle img {
@@ -443,12 +444,39 @@
   #textCancelBtn {
     background: #333;
   }
+  #shadeDirBtn:not(.active) {
+    background: #333;
+  }
+  #shadeDirHint {
+    align-self: center;
+  }
   #textCancelBtn:hover { background: #444; }
 
   #gradientPalette {
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  .color-menu-pick {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    background: #26262c;
+    border: 1px solid #3a3a42;
+    border-radius: 6px;
+    color: #ddd;
+    font: inherit;
+    cursor: pointer;
+  }
+  .color-menu-pick:hover { background: #30303a; }
+  .color-menu-pick img {
+    width: 18px;
+    height: 18px;
+    filter: brightness(0) invert(1);
+    pointer-events: none;
   }
   .gradient-row {
     display: grid;
@@ -471,21 +499,135 @@
   .swatch:hover { outline: 1px solid #888; }
   .swatch.selected { outline: 2px solid #fff; }
 
+  #shadeSlots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+  }
+  .shade-slot {
+    width: 34px;
+    height: 34px;
+    border: 2px solid #3a3a42;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+    background-size: cover;
+  }
+  .shade-slot:hover { outline: 1px solid #888; }
+  .shade-slot.base { border-color: #5aa878; }
+  .shade-slot-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+  .shade-slot-x {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 16px;
+    height: 16px;
+    line-height: 14px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: #8c3a3a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    z-index: 1;
+  }
+  .shade-slot-plus {
+    width: 22px;
+    height: 22px;
+    flex: none;
+    border: 1px dashed #3a3a42;
+    border-radius: 6px;
+    background: transparent;
+    color: #888;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+  .shade-slot-plus:hover { color: #fff; border-color: #888; }
+
+  #shadePickMenu {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 70;
+    width: 372px;
+    max-width: calc(100vw - 48px);
+    max-height: 70vh;
+    overflow-y: auto;
+    background: #1f1f24;
+    border: 1px solid #333;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    padding: 12px;
+  }
+  #shadePickPalette .swatch {
+    width: 100%;
+    min-width: 0;
+    position: relative;
+  }
+  #shadePickPalette .swatch.in-chain {
+    outline: 2px solid #ffd24a;
+  }
+  .chain-num {
+    position: absolute;
+    top: 0;
+    left: 0;
+    min-width: 12px;
+    height: 12px;
+    line-height: 12px;
+    padding: 0 2px;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    background: #ffd24a;
+    color: #111;
+    border-radius: 0 0 4px 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
   .spacer { flex: 1; }
 
   #submitBtn {
-    width: 100%;
-    height: 40px;
+    position: fixed;
+    left: 236px;
+    bottom: 16px;
+    width: 44px;
+    height: 44px;
+    z-index: 60;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
   #submitBtn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  #submitBtn img {
+    width: 22px;
+    height: 22px;
   }
 
   #status {
     font-size: 12px;
     color: #9a9;
     min-height: 16px;
+  }
+
+  #cursorReadout {
+    margin-left: auto;
+    font-size: 12px;
+    color: #9a9;
+    font-variant-numeric: tabular-nums;
+    font-family: monospace;
+    min-height: 16px;
+    white-space: pre;
   }
 
   /* ---- Canvas ---- */
@@ -628,7 +770,7 @@
     font-size: 12px;
     font-weight: bold;
     cursor: pointer;
-    z-index: 4;
+    z-index: 6;
     transform: translate(-50%, -50%);
   }
   #dropPasteBtn:hover {
@@ -650,7 +792,7 @@
     font-size: 12px;
     font-weight: bold;
     cursor: pointer;
-    z-index: 4;
+    z-index: 6;
     transform: translate(-50%, -50%);
   }
   #clearSelectionBtn:hover {
@@ -661,7 +803,7 @@
   #floatingTools {
     position: absolute;
     display: none;
-    z-index: 4;
+    z-index: 6;
     transform: translate(calc(-100% - 24px), -50%);
     white-space: nowrap;
   }
@@ -783,15 +925,33 @@
     <button class="tool-icon-btn" data-tool="text" title="Text tool (click to place text)">
       <img src="/img/icons/texttool.svg" alt="Text tool">
     </button>
+    <button class="tool-icon-btn" data-tool="shade" title="Shading tool (darken or lighten existing colors; hold Shift to invert direction)">
+      <img src="/img/icons/shadingtool.svg" alt="Shading tool">
+    </button>
   </div>
 
   <div class="tool-section tool-grid">
     <h3>Select</h3>
-    <button class="tool-icon-btn" data-tool="select" title="Select (drag to select; Ctrl+C copy, Ctrl+X cut, Ctrl+V paste)">
+    <button class="tool-icon-btn" data-tool="select" title="Select rectangle (drag to select; Ctrl+C copy, Ctrl+X cut, Ctrl+V paste)">
       <img src="/img/icons/selecttool.svg" alt="Select">
+    </button>
+    <button class="tool-icon-btn" data-tool="select-ellipse" title="Ellipse selection (drag to select an oval)">
+      <img src="/img/icons/elipseselect.svg" alt="Ellipse selection">
+    </button>
+    <button class="tool-icon-btn" data-tool="select-wand" title="Fill selection (click a color to select the contiguous region)">
+      <img src="/img/icons/fillselect.svg" alt="Fill selection">
+    </button>
+    <button class="tool-icon-btn" data-tool="select-color" title="Select by color (click to select every pixel of that color)">
+      <img src="/img/icons/colorselect.svg" alt="Select by color">
+    </button>
+    <button class="tool-icon-btn" data-tool="select-lasso" title="Lasso (freehand-draw a selection outline)">
+      <img src="/img/icons/lassoselect.svg" alt="Lasso selection">
     </button>
     <button class="tool-icon-btn" data-tool="cursor" title="Cursor (drag to move pasted content)">
       <img src="/img/icons/cursortool.svg" alt="Cursor">
+    </button>
+    <button type="button" id="invertSelectBtn" class="tool-icon-btn" title="Invert selection (swap selected/unselected pixels)">
+      <img src="/img/icons/inverttool.svg" alt="Invert selection">
     </button>
   </div>
 
@@ -868,7 +1028,7 @@
         <img src="/img/icons/importfile.svg" alt="Import .dat">
       </button>
     </div>
-    <input type="file" id="importFile" accept=".dat" hidden>
+    <input type="file" id="importFile" accept=".dat,.zip" hidden>
   </div>
 
   <div class="tool-section">
@@ -878,10 +1038,8 @@
     </button>
   </div>
 
-  <button type="button" class="tool-icon-btn" id="submitBtn" title="Submit to Game">
-    <img src="/img/icons/sendfile.svg" alt="Submit to Game">
-  </button>
   <div id="status"></div>
+  <span id="cursorReadout"></span>
 </div>
 
 <div id="main">
@@ -902,6 +1060,10 @@
         <span id="currentColorHex">#000000</span>
       </button>
       <div id="colorMenu" class="color-menu hidden">
+        <button type="button" id="colorPickBtn" class="color-menu-pick" title="Pick a color from the drawing (click a pixel after the menu closes)">
+          <img src="/img/icons/colorpickertool.svg" alt="">
+          <span>Pick color from drawing</span>
+        </button>
         <div id="gradientPalette"></div>
       </div>
     </div>
@@ -953,6 +1115,10 @@
   </div>
 </div>
 
+<button type="button" class="tool-icon-btn" id="submitBtn" title="Submit to Game">
+  <img src="/img/icons/sendfile.svg" alt="Submit to Game">
+</button>
+
 <div id="textMenu" class="text-menu hidden">
   <div id="textMenuDrag" class="text-menu-drag" title="Drag to move">
     <img src="/img/icons/drag.svg" alt="Drag to move">
@@ -999,6 +1165,38 @@
   </div>
 </div>
 
+<div id="shadeMenu" class="text-menu hidden">
+  <div id="shadeMenuDrag" class="text-menu-drag" title="Drag to move">
+    <img src="/img/icons/drag.svg" alt="Drag to move">
+  </div>
+  <span class="text-menu-label">Shading</span>
+  <div class="text-menu-row">
+    <label>Direction</label>
+    <button type="button" id="shadeDirBtn" class="text-menu-btn active">
+      <span id="shadeDirLabel">Darker</span>
+    </button>
+    <span class="option" id="shadeDirHint">Shift = invert</span>
+  </div>
+  <div class="text-menu-row">
+    <label>Steps</label>
+    <input type="range" id="shadeSteps" min="1" max="4" value="1">
+    <span id="shadeStepsNum">1</span>
+  </div>
+  <label class="text-menu-label">Shade chain</label>
+  <div id="shadeSlots" title="Shade stages: slot 1 is the base (follows the selected color). Click a slot to change its color."></div>
+  <div class="text-menu-row">
+    <button type="button" id="chainAutoBtn" class="text-menu-btn">Auto-fill</button>
+  </div>
+</div>
+
+<div id="shadePickMenu" class="color-menu hidden">
+  <button type="button" id="shadePickBtn" class="color-menu-pick" title="Pick a color from the drawing (click a pixel after the menu closes)">
+    <img src="/img/icons/colorpickertool.svg" alt="">
+    <span>Pick color from drawing</span>
+  </button>
+  <div id="shadePickPalette"></div>
+</div>
+
 <div id="zoomControl">
   <input type="range" id="zoomSlider" min="100" max="1600" step="50" value="400">
   <span id="zoomLabel">400%</span>
@@ -1012,11 +1210,20 @@
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const status = document.getElementById('status');
+  let stateReady = false;
 
   // Server-injected: the exact Minecraft map palette (indices 4..247).
   const PALETTE = /*__MAP_PALETTE__*/[];
   const indexToColor = {};
   PALETTE.forEach(p => { indexToColor[p.i] = p.c; });
+  const hexToIndex = {};
+  const rgbToHex = {};
+  PALETTE.forEach(p => {
+    hexToIndex[p.c] = p.i;
+    rgbToHex[parseInt(p.c.slice(1, 3), 16) + ',' +
+             parseInt(p.c.slice(3, 5), 16) + ',' +
+             parseInt(p.c.slice(5, 7), 16)] = p.c;
+  });
   let currentColor = PALETTE[0].c;
 
   function selectColor(hex) {
@@ -1025,7 +1232,12 @@
       s.classList.toggle('selected', s.dataset.color === hex));
     document.getElementById('currentColorBox').style.background = hex;
     document.getElementById('currentColorHex').textContent = hex;
+    if (shadeSlots) {
+      shadeSlots[shadeBasePos] = hex;
+      renderShadeSlots();
+    }
     if (textOrigin) updateTextPreview();
+    saveSettings();
   }
 
   // ---- Palette (packed rainbow gradient) ----
@@ -1080,6 +1292,380 @@
     gradientPalette.appendChild(row);
   }
 
+  // ---- Shading tool ----
+  // The shading tool replaces the color under the brush with a shade of it:
+  // in auto mode the next same-hue darker/lighter palette color, in custom
+  // mode the next entry of a user-built chain. Each stroke advances the shade
+  // by `shadeSteps` stages, so re-dragging over a spot deepens it.
+  function hexLum(hex) {
+    const c = hexToRgb(hex);
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  }
+  function hueDist(a, b) {
+    let d = Math.abs(a - b);
+    if (d > 180) d = 360 - d;
+    return d;
+  }
+  function buildShadeMap(dir) {
+    const map = new Uint8Array(256);
+    for (const p of PALETTE) {
+      const hv = hsvOf(p.c);
+      let best = 0, bestScore = Infinity;
+      for (const q of PALETTE) {
+        if (q.i === p.i) continue;
+        const qv = hsvOf(q.c);
+        const hd = hueDist(hv.h, qv.h);
+        if (hd > 40) continue; // keep within the same hue family
+        const dv = dir === 'darker' ? qv.v - hv.v : hv.v - qv.v;
+        if (dv >= 0) continue; // must be strictly darker / lighter
+        const score = Math.abs(dv) * 3 + hd;
+        if (score < bestScore) { bestScore = score; best = q.i; }
+      }
+      map[p.i] = bestScore < Infinity ? best : p.i;
+    }
+    return map;
+  }
+  const shadeDarker = buildShadeMap('darker');
+  const shadeLighter = buildShadeMap('lighter');
+
+  let shadeDir = 'darker';
+  let shadeSteps = 1;
+  let shadeStrokeSeen = null; // cells already shaded in the current stroke
+  let shadeSlots = null;      // ordered shade-stage colors (hex)
+  let shadeBasePos = 0;       // index of the base (selected) color within shadeSlots
+
+  function walkShade(idx, dir, steps) {
+    const map = dir === 'darker' ? shadeDarker : shadeLighter;
+    let cur = idx;
+    for (let k = 0; k < steps; k++) {
+      const next = map[cur];
+      if (next === cur) break;
+      cur = next;
+    }
+    return cur;
+  }
+
+  // Resolve the palette index under (x, y). Transparent -> 0. Falls back to
+  // nearest RGB when the exact palette hex isn't found.
+  function indexAt(x, y) {
+    const d = ctx.getImageData(x, y, 1, 1).data;
+    if (d[3] === 0) return 0;
+    const hex = rgbToHex[d[0] + ',' + d[1] + ',' + d[2]];
+    if (hex !== undefined) return hexToIndex[hex];
+    let best = 0, bestD = Infinity;
+    for (const p of PALETTE) {
+      const c = hexToRgb(p.c);
+      const dd = (c.r - d[0]) * (c.r - d[0]) + (c.g - d[1]) * (c.g - d[1]) + (c.b - d[2]) * (c.b - d[2]);
+      if (dd < bestD) { bestD = dd; best = p.i; }
+    }
+    return best;
+  }
+
+  function shadeCell(x, y, dir) {
+    if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return;
+    const idx = indexAt(x, y);
+    if (idx === 0) return; // ignore empty pixels
+    const target = shadeTargetFor(idx, dir);
+    if (target === idx) return;
+    // Shade each cell at most once per stroke, so re-stamping an already
+    // shaded cell within the same stroke doesn't compound the shade depth.
+    if (shadeStrokeSeen) {
+      const si = y * WIDTH + x;
+      if (shadeStrokeSeen[si]) return;
+      shadeStrokeSeen[si] = 1;
+    }
+    const hex = indexToColor[target];
+    if (!hex) return;
+    paintSquare(x, y, 1, hex);
+  }
+
+  // The shade chain is laid out left-to-right: darker stages, then the base
+  // in the middle, then lighter stages. "Darker" walks left, "lighter" right.
+  // Pixels whose color isn't in the chain are left unchanged.
+  function slotIndexFor(idx) {
+    if (!shadeSlots) return -1;
+    const hex = indexToColor[idx];
+    if (hex === undefined) return -1;
+    return shadeSlots.indexOf(hex);
+  }
+
+  function shadeTargetFor(idx, dir) {
+    const pos = slotIndexFor(idx);
+    if (pos < 0) return idx;
+    let k;
+    if (dir === 'darker') {
+      k = Math.max(pos - shadeSteps, 0);
+    } else {
+      k = Math.min(pos + shadeSteps, shadeSlots.length - 1);
+    }
+    const hex = shadeSlots[k];
+    const target = hexToIndex[hex];
+    return target === undefined ? idx : target;
+  }
+
+  function stampShade(x, y, size, dir) {
+    const offset = Math.floor(size / 2);
+    const positions = [[x, y]];
+    if (mirrorV) positions.push([WIDTH - 1 - x, y]);
+    if (mirrorH) positions.push([x, HEIGHT - 1 - y]);
+    if (mirrorV && mirrorH) positions.push([WIDTH - 1 - x, HEIGHT - 1 - y]);
+    const circle = brushType === 'circle';
+    const r2 = (size / 2) * (size / 2);
+    for (const [px, py] of positions) {
+      for (let dy = -offset; dy <= offset; dy++) {
+        for (let dx = -offset; dx <= offset; dx++) {
+          if (circle && dx * dx + dy * dy > r2) continue;
+          shadeCell(px + dx, py + dy, dir);
+        }
+      }
+    }
+  }
+
+  function shadeAlongLine(x0, y0, x1, y1, size, dir) {
+    const dist = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+    const step = Math.max(1, Math.ceil(size / 3));
+    for (let i = 0; i <= dist; i += step) {
+      const t = dist === 0 ? 0 : i / dist;
+      stampShade(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), size, dir);
+    }
+  }
+
+  function shadeDirFor(shiftKey) {
+    if (!shiftKey) return shadeDir;
+    return shadeDir === 'darker' ? 'lighter' : 'darker';
+  }
+
+  // ---- Shading controls ----
+  const shadeDirBtn = document.getElementById('shadeDirBtn');
+  const shadeDirLabel = document.getElementById('shadeDirLabel');
+  const shadeStepsSlider = document.getElementById('shadeSteps');
+  const shadeStepsNum = document.getElementById('shadeStepsNum');
+  const shadeSlotsEl = document.getElementById('shadeSlots');
+  const shadePickMenu = document.getElementById('shadePickMenu');
+  let shadePickTarget = -1;
+
+  // Builds the shade chain around the selected color. The base color stays in
+  // the middle (shadeBasePos), one same-hue shade stage per slot outward:
+  // darker to the left, lighter to the right. Keeps the existing chain length
+  // and base position, so auto-fill refills the slots instead of resetting to
+  // the default 3.
+  function initShadeSlots() {
+    const count = shadeSlots ? shadeSlots.length : 3;
+    const basePos = shadeSlots ? shadeBasePos : 1;
+    const bi = hexToIndex[currentColor];
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+      if (bi === undefined) {
+        arr.push(currentColor);
+        continue;
+      }
+      let idx = bi;
+      if (i < basePos) {
+        for (let k = 0; k < basePos - i; k++) idx = walkShade(idx, 'darker', 1);
+      } else if (i > basePos) {
+        for (let k = 0; k < i - basePos; k++) idx = walkShade(idx, 'lighter', 1);
+      }
+      arr.push(indexToColor[idx]);
+    }
+    shadeSlots = arr;
+    shadeBasePos = basePos;
+    renderShadeSlots();
+  }
+
+  function shadeOf(hex, dir) {
+    const idx = hexToIndex[hex];
+    if (idx === undefined) return hex;
+    const next = walkShade(idx, dir, 1);
+    if (next === idx) return hex;
+    return indexToColor[next];
+  }
+
+  function addDarkerSlot() {
+    const next = shadeOf(shadeSlots[0], 'darker');
+    if (next === shadeSlots[0]) {
+      status.textContent = 'No darker shade available for that color';
+      return;
+    }
+    shadeSlots.unshift(next);
+    shadeBasePos++;
+    renderShadeSlots();
+  }
+
+  function addLighterSlot() {
+    const next = shadeOf(shadeSlots[shadeSlots.length - 1], 'lighter');
+    if (next === shadeSlots[shadeSlots.length - 1]) {
+      status.textContent = 'No lighter shade available for that color';
+      return;
+    }
+    shadeSlots.push(next);
+    renderShadeSlots();
+  }
+
+  function removeShadeSlot(i) {
+    if (i === shadeBasePos) return; // never remove the base
+    shadeSlots.splice(i, 1);
+    if (i < shadeBasePos) shadeBasePos--;
+    renderShadeSlots();
+  }
+
+  function setShadeSlot(i, hex) {
+    if (i === shadeBasePos) {
+      selectColor(hex);
+      return;
+    }
+    shadeSlots[i] = hex;
+    renderShadeSlots();
+  }
+
+  function renderShadeSlots() {
+    shadeSlotsEl.replaceChildren();
+
+    const leftPlus = document.createElement('button');
+    leftPlus.className = 'shade-slot-plus';
+    leftPlus.textContent = '+';
+    leftPlus.title = 'Add a darker stage';
+    leftPlus.addEventListener('click', addDarkerSlot);
+    shadeSlotsEl.appendChild(leftPlus);
+
+    for (let i = 0; i < shadeSlots.length; i++) {
+      const hex = shadeSlots[i];
+      if (i === shadeBasePos) {
+        const b = document.createElement('button');
+        b.className = 'shade-slot base';
+        b.style.background = hex;
+        b.title = 'Base (follows selected color) - click to change';
+        b.addEventListener('click', event => {
+          event.stopPropagation();
+          openShadePick(i, b);
+        });
+        shadeSlotsEl.appendChild(b);
+        continue;
+      }
+      const wrap = document.createElement('span');
+      wrap.className = 'shade-slot-wrap';
+      const b = document.createElement('button');
+      b.className = 'shade-slot';
+      b.style.background = hex;
+      b.title = 'Click to change this color';
+      b.addEventListener('click', event => {
+        event.stopPropagation();
+        openShadePick(i, b);
+      });
+      wrap.appendChild(b);
+      const x = document.createElement('button');
+      x.className = 'shade-slot-x';
+      x.textContent = '\u00d7';
+      x.title = 'Remove this stage';
+      x.addEventListener('click', () => removeShadeSlot(i));
+      wrap.appendChild(x);
+      shadeSlotsEl.appendChild(wrap);
+    }
+
+    const rightPlus = document.createElement('button');
+    rightPlus.className = 'shade-slot-plus';
+    rightPlus.textContent = '+';
+    rightPlus.title = 'Add a lighter stage';
+    rightPlus.addEventListener('click', addLighterSlot);
+    shadeSlotsEl.appendChild(rightPlus);
+    saveSettings();
+  }
+
+  function openShadePick(slotIndex, el) {
+    shadePickTarget = slotIndex;
+    const r = el.getBoundingClientRect();
+    shadePickMenu.style.left = Math.max(8, r.left - 140) + 'px';
+    shadePickMenu.style.top = Math.min(r.bottom + 6, window.innerHeight - 240) + 'px';
+    shadePickMenu.classList.remove('hidden');
+    updateShadePickBadges();
+  }
+
+  // Marks every swatch in the picker that's part of the shade chain: the base
+  // is 0, darker stages to its left are -1/-2..., lighter stages to its right
+  // +1/+2...
+  function updateShadePickBadges() {
+    const swatches = shadePickPalette.querySelectorAll('.swatch');
+    swatches.forEach(s => {
+      s.classList.remove('in-chain');
+      const old = s.querySelector('.chain-num');
+      if (old) old.remove();
+    });
+    if (!shadeSlots) return;
+    shadeSlots.forEach((hex, i) => {
+      const target = [...swatches].find(s => s.dataset.color === hex);
+      if (!target) return;
+      target.classList.add('in-chain');
+      const num = document.createElement('span');
+      num.className = 'chain-num';
+      num.textContent = String(i - shadeBasePos);
+      target.appendChild(num);
+    });
+  }
+
+  function closeShadePick() {
+    shadePickMenu.classList.add('hidden');
+    shadePickTarget = -1;
+  }
+
+  shadeDirBtn.addEventListener('click', () => {
+    shadeDir = shadeDir === 'darker' ? 'lighter' : 'darker';
+    shadeDirBtn.classList.toggle('active', shadeDir === 'darker');
+    shadeDirLabel.textContent = shadeDir === 'darker' ? 'Darker' : 'Lighter';
+    saveSettings();
+  });
+
+  shadeStepsSlider.addEventListener('input', () => {
+    shadeSteps = parseInt(shadeStepsSlider.value, 10);
+    shadeStepsNum.textContent = shadeSteps;
+    saveSettings();
+  });
+
+  document.getElementById('chainAutoBtn').addEventListener('click', () => {
+    initShadeSlots();
+    status.textContent = 'Rebuilt shade chain from current color';
+  });
+
+  // Big-palette picker for individual slots (same grid as the main color
+  // palette).
+  const shadePickPalette = document.getElementById('shadePickPalette');
+  for (let i = 0; i < sorted.length; i += GRADIENT_COLS) {
+    const row = document.createElement('div');
+    row.className = 'gradient-row';
+    for (let j = i; j < Math.min(i + GRADIENT_COLS, sorted.length); j++) {
+      const p = sorted[j];
+      const tile = document.createElement('button');
+      tile.className = 'swatch';
+      tile.style.background = p.c;
+      tile.dataset.color = p.c;
+      tile.title = p.c + ' (map index ' + p.i + ')';
+      tile.addEventListener('click', () => {
+        if (shadePickTarget >= 0 && shadeSlots) {
+          setShadeSlot(shadePickTarget, p.c);
+        }
+        closeShadePick();
+      });
+      row.appendChild(tile);
+    }
+    shadePickPalette.appendChild(row);
+  }
+  shadePickMenu.addEventListener('click', event => event.stopPropagation());
+  document.addEventListener('click', () => closeShadePick());
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeShadePick();
+  });
+
+  // Eyedropper for a shade slot: closes the menu, then the next canvas click
+  // samples the pixel color and stores it in the slot being edited.
+  document.getElementById('shadePickBtn').addEventListener('click', event => {
+    event.stopPropagation();
+    const target = shadePickTarget;
+    closeShadePick();
+    picking = true;
+    pickTarget = target;
+    status.textContent = 'Click a pixel to set the shade color';
+  });
+
+  initShadeSlots();
+
   // ---- Color menu (open/close) ----
   const colorButton = document.getElementById('colorButton');
   const colorMenu = document.getElementById('colorMenu');
@@ -1099,18 +1685,20 @@
     if (event.key === 'Escape') setColorMenu(false);
   });
 
+  // Eyedropper: closes the menu, then the next canvas click samples the pixel
+  // color and stores it as the active color.
+  document.getElementById('colorPickBtn').addEventListener('click', event => {
+    event.stopPropagation();
+    setColorMenu(false);
+    picking = true;
+    pickTarget = -1;
+    status.textContent = 'Click a pixel to pick its color';
+  });
+
   // ---- Colors in use ----
   // Scans the canvas and lists every palette color currently painted, as a
   // compact strip of small swatches under the palette.
   const inUseBox = document.getElementById('inUse');
-  const hexToIndex = {};
-  const rgbToHex = {};
-  PALETTE.forEach(p => {
-    hexToIndex[p.c] = p.i;
-    rgbToHex[parseInt(p.c.slice(1, 3), 16) + ',' +
-             parseInt(p.c.slice(3, 5), 16) + ',' +
-             parseInt(p.c.slice(5, 7), 16)] = p.c;
-  });
 
   function refreshInUse() {
     const data = ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
@@ -1142,10 +1730,13 @@
 
   // ---- Drawing state ----
   let tool = 'pixel';
+  let picking = false;
+  let pickTarget = -1;
   let brushType = 'square';
   let brushSize = 1;
   let erasing = false;
   let drawing = false;
+  let strokePointerId = null;
   let last = null;
   let lineStart = null;
   let lineSnapshot = null;
@@ -1161,6 +1752,8 @@
   let selBounds = null;
   let selectStart = null;
   let selectDragRect = null;
+  let selectDragShape = null;   // 'rect' | 'ellipse'
+  let lassoPts = null;          // freehand lasso trace
   let textOrigin = null;
   let textOriginDrag = false;
   let textOriginStart = null;
@@ -1179,6 +1772,96 @@
   const MAX_UNDO = 50;
   let dirty = false;
 
+  // ---- Local settings (localStorage) ----
+  // Persists the current UI state for this browser user across sessions, so
+  // opening a new map picks up the settings from the last editing session.
+  // Nothing is sent to the server.
+  const SETTINGS_KEY = 'mapartist-settings';
+
+  function collectSettings() {
+    return {
+      color: currentColor,
+      brushType,
+      brushSize,
+      erasing,
+      mirrorV,
+      mirrorH,
+      zoom: parseInt(document.getElementById('zoomSlider').value, 10),
+      shadeDir,
+      shadeSteps,
+      shadeSlots: shadeSlots ? shadeSlots.slice() : null,
+      shadeBasePos,
+      textFont: document.getElementById('textFont').value,
+      textScale: document.getElementById('textScaleNum').value,
+      textSpacing: document.getElementById('textSpacingNum').value,
+      textChar: document.getElementById('textCharNum').value,
+      textSpace: document.getElementById('textSpaceNum').value,
+      textAngle: document.getElementById('textAngleNum').value
+    };
+  }
+
+  function saveSettings() {
+    if (!stateReady) return;
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(collectSettings()));
+    } catch (e) {
+      // storage unavailable (private mode etc): keep running without it
+    }
+  }
+
+  function applySettings() {
+    let s = null;
+    try {
+      s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    } catch (e) {
+      s = null;
+    }
+    if (s) {
+      if (Array.isArray(s.shadeSlots) && s.shadeSlots.length > 0) {
+        shadeSlots = s.shadeSlots.slice();
+        shadeBasePos = Math.max(0, Math.min(shadeSlots.length - 1, s.shadeBasePos | 0));
+        renderShadeSlots();
+      }
+      if (s.shadeDir === 'darker' || s.shadeDir === 'lighter') {
+        shadeDir = s.shadeDir;
+        shadeDirBtn.classList.toggle('active', shadeDir === 'darker');
+        shadeDirLabel.textContent = shadeDir === 'darker' ? 'Darker' : 'Lighter';
+      }
+      if (Number.isFinite(s.shadeSteps)) {
+        shadeSteps = Math.max(1, Math.min(4, s.shadeSteps));
+        shadeStepsSlider.value = String(shadeSteps);
+        shadeStepsNum.textContent = shadeSteps;
+      }
+      if (typeof s.color === 'string' && hexToIndex[s.color] !== undefined) selectColor(s.color);
+      if (typeof s.brushType === 'string') setBrushType(s.brushType);
+      if (Number.isFinite(s.brushSize)) setBrushSize(s.brushSize);
+      if (s.erasing) {
+        erasing = true;
+        eraserToggle.classList.add('active');
+        eraserToggle.setAttribute('aria-pressed', 'true');
+      }
+      if (s.mirrorV) { mirrorV = true; setMirror(mirrorVBtn, true, 'Mirror vertical'); }
+      if (s.mirrorH) { mirrorH = true; setMirror(mirrorHBtn, true, 'Mirror horizontal'); }
+      if (Number.isFinite(s.zoom)) {
+        const z = Math.max(100, Math.min(1600, Math.round(s.zoom)));
+        zoomSlider.value = String(z);
+        applyZoom(z);
+      }
+      if (typeof s.textFont === 'string') document.getElementById('textFont').value = s.textFont;
+      const setNum = (id, v) => {
+        const el = document.getElementById(id);
+        if (el && Number.isFinite(parseFloat(v))) el.value = String(v);
+      };
+      setNum('textScaleNum', s.textScale);
+      setNum('textSpacingNum', s.textSpacing);
+      setNum('textCharNum', s.textChar);
+      setNum('textSpaceNum', s.textSpace);
+      setNum('textAngleNum', s.textAngle);
+    }
+    stateReady = true;
+    saveSettings();
+  }
+
   function pushUndo() {
     dirty = true;
     // Any programmatic edit invalidates the hover preview's snapshot: dropping
@@ -1192,14 +1875,38 @@
     document.getElementById('redoBtn').disabled = true;
   }
 
+  // True when (x, y) may be painted right now: either there is no selection,
+  // or the pixel is inside the selection mask.
+  function paintable(x, y) {
+    return !selectionMask || selectionMask[y * WIDTH + x] !== 0;
+  }
+
   function paintSquare(x, y, size, color) {
     const offset = Math.floor(size / 2);
-    if (color === null) {
-      ctx.clearRect(x - offset, y - offset, size, size);
+    if (!selectionMask) {
+      if (color === null) {
+        ctx.clearRect(x - offset, y - offset, size, size);
+      } else {
+        ctx.fillStyle = color;
+        ctx.fillRect(x - offset, y - offset, size, size);
+      }
       return;
     }
-    ctx.fillStyle = color;
-    ctx.fillRect(x - offset, y - offset, size, size);
+    // With a selection active, paint pixel-by-pixel so only selected cells
+    // are affected.
+    for (let dy = 0; dy < size; dy++) {
+      for (let dx = 0; dx < size; dx++) {
+        const px = x - offset + dx, py = y - offset + dy;
+        if (px < 0 || py < 0 || px >= WIDTH || py >= HEIGHT) continue;
+        if (!paintable(px, py)) continue;
+        if (color === null) {
+          ctx.clearRect(px, py, 1, 1);
+        } else {
+          ctx.fillStyle = color;
+          ctx.fillRect(px, py, 1, 1);
+        }
+      }
+    }
   }
 
   // Dispatches a stamp to the current brush shape. New brush shapes are
@@ -1628,6 +2335,7 @@
       const o = (sy * WIDTH + sx) * 4;
       const tr = [data.data[o], data.data[o + 1], data.data[o + 2], data.data[o + 3]];
       if (tr[0] === paint[0] && tr[1] === paint[1] && tr[2] === paint[2] && tr[3] === paint[3]) continue;
+      if (!paintable(sx, sy)) continue;
       const stack = [[sx, sy]];
       while (stack.length) {
         const [px, py] = stack.pop();
@@ -1636,6 +2344,7 @@
             data.data[oi] !== tr[0] ||
             data.data[oi + 1] !== tr[1] ||
             data.data[oi + 2] !== tr[2]) continue;
+        if (!paintable(px, py)) continue;
         data.data[oi] = paint[0];
         data.data[oi + 1] = paint[1];
         data.data[oi + 2] = paint[2];
@@ -1685,7 +2394,7 @@
 
   // Returns every pixel in the contiguous same-color region around (sx, sy),
   // using the supplied snapshot data (never the live canvas).
-  function floodRegion(sx, sy, data) {
+  function floodRegion(sx, sy, data, barrier) {
     const o = (sy * WIDTH + sx) * 4;
     const tr = [data.data[o], data.data[o + 1], data.data[o + 2], data.data[o + 3]];
     const region = [];
@@ -1701,6 +2410,7 @@
           data.data[oi] !== tr[0] ||
           data.data[oi + 1] !== tr[1] ||
           data.data[oi + 2] !== tr[2]) continue;
+      if (barrier && barrier(px, py)) continue;
       region.push([px, py]);
       if (px > 0) stack.push([px - 1, py]);
       if (px < WIDTH - 1) stack.push([px + 1, py]);
@@ -1710,8 +2420,25 @@
     return region;
   }
 
+  // Palette index lookup against a snapshot buffer (never the live canvas).
+  // Same resolution rules as indexAt: transparent -> 0, exact palette hex ->
+  // its index, otherwise nearest RGB.
+  function indexInData(data, x, y) {
+    const o = (y * WIDTH + x) * 4;
+    if (data[o + 3] === 0) return 0;
+    const hex = rgbToHex[data[o] + ',' + data[o + 1] + ',' + data[o + 2]];
+    if (hex !== undefined) return hexToIndex[hex];
+    let best = 0, bestD = Infinity;
+    for (const p of PALETTE) {
+      const c = hexToRgb(p.c);
+      const dd = (c.r - data[o]) * (c.r - data[o]) + (c.g - data[o + 1]) * (c.g - data[o + 1]) + (c.b - data[o + 2]) * (c.b - data[o + 2]);
+      if (dd < bestD) { bestD = dd; best = p.i; }
+    }
+    return best;
+  }
+
   function previewAt(x, y) {
-    if (tool !== 'pixel' && tool !== 'bucket' && tool !== 'square' && tool !== 'circle') {
+    if (tool !== 'pixel' && tool !== 'bucket' && tool !== 'square' && tool !== 'circle' && tool !== 'shade') {
       clearPreview();
       return;
     }
@@ -1725,7 +2452,36 @@
       if (mirrorH) starts.push([x, HEIGHT - 1 - y]);
       if (mirrorV && mirrorH) starts.push([WIDTH - 1 - x, HEIGHT - 1 - y]);
       for (const [sx, sy] of starts) {
-        for (const [px, py] of floodRegion(sx, sy, data)) ctx.fillRect(px, py, 1, 1);
+        for (const [px, py] of floodRegion(sx, sy, data, (px, py) => !paintable(px, py))) {
+          ctx.fillRect(px, py, 1, 1);
+        }
+      }
+      return;
+    }
+    if (tool === 'shade') {
+      // Tint every cell in the brush stamp that would actually change color
+      // (its palette index resolves to a different shade in the chain).
+      const data = previewSnapshot.data;
+      const dir = shadeDir;
+      const size = brushSize;
+      const offset = Math.floor(size / 2);
+      const r2 = (size / 2) * (size / 2);
+      const circle = brushType === 'circle';
+      const positions = [[x, y]];
+      if (mirrorV) positions.push([WIDTH - 1 - x, y]);
+      if (mirrorH) positions.push([x, HEIGHT - 1 - y]);
+      if (mirrorV && mirrorH) positions.push([WIDTH - 1 - x, HEIGHT - 1 - y]);
+      for (const [px, py] of positions) {
+        for (let dy = -offset; dy <= offset; dy++) {
+          for (let dx = -offset; dx <= offset; dx++) {
+            if (circle && dx * dx + dy * dy > r2) continue;
+            const cx = px + dx, cy = py + dy;
+            if (cx < 0 || cy < 0 || cx >= WIDTH || cy >= HEIGHT) continue;
+            const idx = indexInData(data, cx, cy);
+            if (idx === 0) continue;
+            if (shadeTargetFor(idx, dir) !== idx && paintable(cx, cy)) ctx.fillRect(cx, cy, 1, 1);
+          }
+        }
       }
       return;
     }
@@ -1737,13 +2493,39 @@
     if (mirrorV) positions.push([WIDTH - 1 - x, y]);
     if (mirrorH) positions.push([x, HEIGHT - 1 - y]);
     if (mirrorV && mirrorH) positions.push([WIDTH - 1 - x, HEIGHT - 1 - y]);
+    if (!selectionMask) {
+      for (const [px, py] of positions) {
+        if (brushType === 'circle') {
+          ctx.beginPath();
+          ctx.arc(px, py, size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillRect(px - offset, py - offset, size, size);
+        }
+      }
+      return;
+    }
+    const r2 = (size / 2) * (size / 2);
     for (const [px, py] of positions) {
       if (brushType === 'circle') {
-        ctx.beginPath();
-        ctx.arc(px, py, size / 2, 0, Math.PI * 2);
-        ctx.fill();
+        for (let dy = -offset; dy <= offset; dy++) {
+          for (let dx = -offset; dx <= offset; dx++) {
+            if (dx * dx + dy * dy > r2) continue;
+            const cx = px + dx, cy = py + dy;
+            if (cx < 0 || cy < 0 || cx >= WIDTH || cy >= HEIGHT) continue;
+            if (!paintable(cx, cy)) continue;
+            ctx.fillRect(cx, cy, 1, 1);
+          }
+        }
       } else {
-        ctx.fillRect(px - offset, py - offset, size, size);
+        for (let dy = 0; dy < size; dy++) {
+          for (let dx = 0; dx < size; dx++) {
+            const cx = px - offset + dx, cy = py - offset + dy;
+            if (cx < 0 || cy < 0 || cx >= WIDTH || cy >= HEIGHT) continue;
+            if (!paintable(cx, cy)) continue;
+            ctx.fillRect(cx, cy, 1, 1);
+          }
+        }
       }
     }
   }
@@ -1772,7 +2554,6 @@
   // copies/cuts (which clears the selection) or presses Escape.
   const selectionOverlay = document.getElementById('selectionOverlay');
   const overlayCtx = selectionOverlay.getContext('2d');
-  const overlayImg = overlayCtx.createImageData(WIDTH, HEIGHT);
 
   function rectBounds(a, b) {
     const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x);
@@ -1795,34 +2576,67 @@
     return x1 < 0 ? null : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
   }
 
-  function updateSelectionBox() {
-    const data = overlayImg.data;
-    data.fill(0);
-    if (selectionMask) {
-      for (let y = 0; y < HEIGHT; y++) {
-        for (let x = 0; x < WIDTH; x++) {
-          if (selectionMask[y * WIDTH + x]) {
-            const i = (y * WIDTH + x) * 4;
-            data[i] = 255;
-            data[i + 1] = 255;
-            data[i + 2] = 255;
-            data[i + 3] = 90;
-          }
+  // ---- Marching ants ----
+  // An animated outline that traces the exact boundary of the selection: every
+  // selected pixel with an unselected 4-neighbour. Each boundary cell is drawn
+  // alternating white / near-black so the line stays visible over any content,
+  // including fully white drawings. The phase advances with antsFrame, and the
+  // animation runs only while a selection (or an in-progress drag) is on screen.
+  let antsFrame = 0;
+  let antsRaf = null;
+
+  function antColor(x, y) {
+    return ((x + y + antsFrame) & 3) < 2 ? '#fff' : '#1c1c20';
+  }
+
+  function strokePixel(x, y) {
+    overlayCtx.fillStyle = antColor(x, y);
+    overlayCtx.fillRect(x, y, 1, 1);
+  }
+
+  function renderSelection() {
+    overlayCtx.clearRect(0, 0, WIDTH, HEIGHT);
+    if (selectionMask && selBounds) {
+      const b = selBounds;
+      for (let y = b.y; y < b.y + b.h; y++) {
+        for (let x = b.x; x < b.x + b.w; x++) {
+          if (!selectionMask[y * WIDTH + x]) continue;
+          const top = y === 0 || !selectionMask[(y - 1) * WIDTH + x];
+          const bottom = y === HEIGHT - 1 || !selectionMask[(y + 1) * WIDTH + x];
+          const left = x === 0 || !selectionMask[y * WIDTH + (x - 1)];
+          const right = x === WIDTH - 1 || !selectionMask[y * WIDTH + (x + 1)];
+          if (top || bottom || left || right) strokePixel(x, y);
         }
       }
     }
-    if (selectDragRect) {
-      for (let y = selectDragRect.y; y < selectDragRect.y + selectDragRect.h; y++) {
-        for (let x = selectDragRect.x; x < selectDragRect.x + selectDragRect.w; x++) {
-          const i = (y * WIDTH + x) * 4;
-          data[i] = 255;
-          data[i + 1] = 255;
-          data[i + 2] = 255;
-          data[i + 3] = 90;
+    if (selectDragShape === 'ellipse' && selectDragRect) {
+      const r = selectDragRect;
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++) {
+          if (!ellipseInside(x, y, r)) continue;
+          const border = !ellipseInside(x - 1, y, r) || !ellipseInside(x + 1, y, r)
+              || !ellipseInside(x, y - 1, r) || !ellipseInside(x, y + 1, r);
+          if (border) strokePixel(x, y);
+        }
+      }
+    } else if (selectDragShape === 'rect' && selectDragRect) {
+      const r = selectDragRect;
+      for (let y = r.y; y < r.y + r.h; y++) {
+        for (let x = r.x; x < r.x + r.w; x++) {
+          const top = y === r.y;
+          const bottom = y === r.y + r.h - 1;
+          const left = x === r.x;
+          const right = x === r.x + r.w - 1;
+          if (top || bottom || left || right) strokePixel(x, y);
         }
       }
     }
-    overlayCtx.putImageData(overlayImg, 0, 0);
+    if (lassoPts && lassoPts.length > 0) {
+      for (let i = 0; i + 1 < lassoPts.length; i++) {
+        linePixels(lassoPts[i].x, lassoPts[i].y, lassoPts[i + 1].x, lassoPts[i + 1].y,
+          (x, y) => strokePixel(x, y));
+      }
+    }
     const btn = document.getElementById('clearSelectionBtn');
     if (selBounds) {
       btn.style.left = ((selBounds.x + selBounds.w) / WIDTH * 100) + '%';
@@ -1830,6 +2644,31 @@
       btn.style.display = 'block';
     } else {
       btn.style.display = 'none';
+    }
+  }
+
+  function scheduleAnts() {
+    if (antsRaf) return;
+    let tickCount = 0;
+    const tick = () => {
+      // Advance the dash phase only once every few frames to keep the ants
+      // from marching too fast.
+      tickCount++;
+      if (tickCount % 3 === 0) antsFrame++;
+      renderSelection();
+      if (selectionMask || selectDragRect || lassoPts) {
+        antsRaf = requestAnimationFrame(tick);
+      } else {
+        antsRaf = null;
+      }
+    };
+    antsRaf = requestAnimationFrame(tick);
+  }
+
+  function stopAnts() {
+    if (antsRaf) {
+      cancelAnimationFrame(antsRaf);
+      antsRaf = null;
     }
   }
 
@@ -1845,7 +2684,8 @@
       }
     }
     selBounds = selectionUnion();
-    updateSelectionBox();
+    renderSelection();
+    scheduleAnts();
   }
 
   function clearSelection() {
@@ -1853,7 +2693,130 @@
     selBounds = null;
     selectStart = null;
     selectDragRect = null;
-    updateSelectionBox();
+    selectDragShape = null;
+    lassoPts = null;
+    stopAnts();
+    renderSelection();
+  }
+
+  // ORs a set of [x, y] pixels into the selection mask and refreshes the
+  // marching-ants outline.
+  function addSelectionPixels(pixels) {
+    ensureMask();
+    for (const [x, y] of pixels) {
+      if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) continue;
+      selectionMask[y * WIDTH + x] = 1;
+    }
+    selBounds = selectionUnion();
+    renderSelection();
+    scheduleAnts();
+  }
+
+  // Bresenham line between two pixels; invokes `put(x, y)` for each cell.
+  function linePixels(x0, y0, x1, y1, put) {
+    const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    let x = x0, y = y0;
+    for (;;) {
+      put(x, y);
+      if (x === x1 && y === y1) break;
+      const e2 = 2 * err;
+      if (e2 > -dy) { err -= dy; x += sx; }
+      if (e2 < dx) { err += dx; y += sy; }
+    }
+  }
+
+  function ellipseInside(x, y, r) {
+    const rx = r.w / 2, ry = r.h / 2;
+    const cx = r.x + rx, cy = r.y + ry;
+    const nx = (x - cx) / rx, ny = (y - cy) / ry;
+    return nx * nx + ny * ny <= 1;
+  }
+
+  function addEllipseSelection() {
+    const r = selectDragRect;
+    const pixels = [];
+    for (let y = r.y; y < r.y + r.h; y++) {
+      for (let x = r.x; x < r.x + r.w; x++) {
+        if (ellipseInside(x, y, r)) pixels.push([x, y]);
+      }
+    }
+    addSelectionPixels(pixels);
+  }
+
+  function wandSelect(x, y) {
+    const data = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    addSelectionPixels(floodRegion(x, y, data));
+    status.textContent = 'Fill selection added';
+  }
+
+  function colorSelect(x, y) {
+    const data = ctx.getImageData(0, 0, WIDTH, HEIGHT).data;
+    const transparent = data[(y * WIDTH + x) * 4 + 3] === 0;
+    const pixels = [];
+    if (transparent) {
+      // Select every empty (transparent) cell on the canvas.
+      for (let yy = 0; yy < HEIGHT; yy++) {
+        for (let xx = 0; xx < WIDTH; xx++) {
+          if (data[(yy * WIDTH + xx) * 4 + 3] === 0) pixels.push([xx, yy]);
+        }
+      }
+      addSelectionPixels(pixels);
+      status.textContent = 'Selected every transparent pixel';
+      return;
+    }
+    const idx = indexAt(x, y);
+    const hex = indexToColor[idx];
+    if (!hex) { status.textContent = 'Nothing to select there'; return; }
+    for (let yy = 0; yy < HEIGHT; yy++) {
+      for (let xx = 0; xx < WIDTH; xx++) {
+        const o = (yy * WIDTH + xx) * 4;
+        if (data[o + 3] === 0) continue;
+        if (rgbToHex[data[o] + ',' + data[o + 1] + ',' + data[o + 2]] === hex) {
+          pixels.push([xx, yy]);
+        }
+      }
+    }
+    addSelectionPixels(pixels);
+    status.textContent = 'Selected every ' + hex + ' pixel';
+  }
+
+  function addLassoSelection() {
+    if (!lassoPts || lassoPts.length === 0) return;
+    const pts = lassoPts;
+    const pixels = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      linePixels(a.x, a.y, b.x, b.y, (x, y) => pixels.push([x, y]));
+    }
+    if (pts.length >= 3) {
+      let minX = WIDTH, minY = HEIGHT, maxX = -1, maxY = -1;
+      for (const p of pts) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+      for (let y = minY; y <= maxY; y++) {
+        const xs = [];
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[i], b = pts[(i + 1) % pts.length];
+          const yc = y + 0.5;
+          if ((a.y <= yc && b.y > yc) || (b.y <= yc && a.y > yc)) {
+            xs.push(a.x + (yc - a.y) / (b.y - a.y) * (b.x - a.x));
+          }
+        }
+        xs.sort((m, n) => m - n);
+        for (let k = 0; k + 1 < xs.length; k += 2) {
+          const x0 = Math.ceil(xs[k] - 0.5);
+          const x1 = Math.floor(xs[k + 1] - 0.5);
+          for (let x = x0; x <= x1; x++) pixels.push([x, y]);
+        }
+      }
+    }
+    addSelectionPixels(pixels);
+    status.textContent = 'Lasso selection added';
   }
 
   function copySelection(mode) {
@@ -1886,6 +2849,26 @@
     }
     clearSelection();
   }
+
+  function invertSelection() {
+    ensureMask();
+    let any = false;
+    for (let i = 0; i < selectionMask.length; i++) {
+      selectionMask[i] = selectionMask[i] ? 0 : 1;
+      if (selectionMask[i]) any = true;
+    }
+    if (!any) {
+      clearSelection();
+      status.textContent = 'Nothing selected';
+      return;
+    }
+    selBounds = selectionUnion();
+    renderSelection();
+    scheduleAnts();
+    status.textContent = 'Selection inverted';
+  }
+
+  document.getElementById('invertSelectBtn').addEventListener('click', invertSelection);
 
   function updateFloatingBox() {
     const box = document.getElementById('floatingBox');
@@ -2015,9 +2998,26 @@
   }
 
   function beginStroke(event) {
+    strokePointerId = event.pointerId;
     clearPreview();
     const pos = canvasPos(event);
-    if (tool === 'select') {
+    if (picking) {
+      picking = false;
+      const idx = indexAt(pos.x, pos.y);
+      const hex = indexToColor[idx];
+      if (hex) {
+        if (pickTarget >= 0 && shadeSlots) {
+          setShadeSlot(pickTarget, hex);
+          status.textContent = 'Shade slot set to ' + hex + ' (map index ' + idx + ')';
+        } else {
+          selectColor(hex);
+          status.textContent = 'Picked ' + hex + ' (map index ' + idx + ')';
+        }
+      }
+      pickTarget = -1;
+      return;
+    }
+    if (tool === 'select' || tool === 'select-ellipse') {
       if (floating) {
         floatingStart = pos;
         floatingGrab = { dx: floatingPos.x - pos.x, dy: floatingPos.y - pos.y };
@@ -2026,6 +3026,21 @@
         return;
       }
       selectStart = pos;
+      selectDragShape = tool === 'select' ? 'rect' : 'ellipse';
+      drawing = true;
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (tool === 'select-wand') {
+      wandSelect(pos.x, pos.y);
+      return;
+    }
+    if (tool === 'select-color') {
+      colorSelect(pos.x, pos.y);
+      return;
+    }
+    if (tool === 'select-lasso') {
+      lassoPts = [pos];
       drawing = true;
       canvas.setPointerCapture(event.pointerId);
       return;
@@ -2079,6 +3094,14 @@
       refreshInUse();
       return;
     }
+    if (tool === 'shade') {
+      shadeStrokeSeen = new Uint8Array(WIDTH * HEIGHT);
+      stampShade(pos.x, pos.y, size, shadeDirFor(event.shiftKey));
+      last = pos;
+      drawing = true;
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
     stampBrush(pos.x, pos.y, size, colorFor());
     last = pos;
     drawing = true;
@@ -2087,15 +3110,33 @@
 
   function moveStroke(event) {
     if (!drawing) return;
+    // Self-heal: if a move arrives while "drawing" but no button is held, the
+    // pointerup was lost (e.g. released outside the window). End the stroke so
+    // painting doesn't keep applying without the mouse held down.
+    if (event.buttons === 0) {
+      endStroke(event);
+      return;
+    }
     const size = brushSize;
     const raw = canvasPos(event);
-    if (tool === 'select') {
+    if (tool === 'select' || tool === 'select-ellipse') {
       if (floating) {
         floatingPos = { x: raw.x + floatingGrab.dx, y: raw.y + floatingGrab.dy };
         drawFloating();
       } else if (selectStart) {
         selectDragRect = rectBounds(selectStart, raw);
-        updateSelectionBox();
+        selectDragShape = tool === 'select' ? 'rect' : 'ellipse';
+        renderSelection();
+        scheduleAnts();
+      }
+      return;
+    }
+    if (tool === 'select-lasso') {
+      const lastPt = lassoPts[lassoPts.length - 1];
+      if (!lastPt || lastPt.x !== raw.x || lastPt.y !== raw.y) {
+        lassoPts.push(raw);
+        renderSelection();
+        scheduleAnts();
       }
       return;
     }
@@ -2160,33 +3201,60 @@
       paintShape(tool, shapeStart.x, shapeStart.y, shapeEnd.x, shapeEnd.y, size, colorFor());
       return;
     }
+    if (tool === 'shade') {
+      shadeAlongLine(last.x, last.y, raw.x, raw.y, size, shadeDirFor(event.shiftKey));
+      last = raw;
+      return;
+    }
     paintAlongLine(last.x, last.y, raw.x, raw.y, size, colorFor());
     last = raw;
   }
 
+  function releaseStrokePointer() {
+    if (strokePointerId != null && canvas.hasPointerCapture(strokePointerId)) {
+      try { canvas.releasePointerCapture(strokePointerId); } catch (e) { /* ignore */ }
+    }
+    strokePointerId = null;
+  }
+
   function endStroke(event) {
+    // Reset the drawing state up front so no code path (including an
+    // exception in a commit below) can leave the app "stuck painting" with the
+    // mouse button released. Releasing the capture also stops the canvas from
+    // swallowing later clicks meant for the toolbar buttons.
+    drawing = false;
+    releaseStrokePointer();
     const cancelled = event && event.type === 'pointercancel';
-    if (tool === 'select') {
+    if (tool === 'select' || tool === 'select-ellipse') {
       if (!cancelled && selectDragRect) {
-        addRectSelection(selectDragRect.x, selectDragRect.y,
-          selectDragRect.x + selectDragRect.w - 1, selectDragRect.y + selectDragRect.h - 1);
+        if (selectDragShape === 'ellipse') {
+          addEllipseSelection();
+        } else {
+          addRectSelection(selectDragRect.x, selectDragRect.y,
+            selectDragRect.x + selectDragRect.w - 1, selectDragRect.y + selectDragRect.h - 1);
+        }
         status.textContent = 'Selected area - Ctrl+C to copy, Esc to clear';
       }
-      drawing = false;
       selectStart = null;
       selectDragRect = null;
+      selectDragShape = null;
+      floatingStart = null;
+      last = null;
+      return;
+    }
+    if (tool === 'select-lasso') {
+      if (!cancelled) addLassoSelection();
+      lassoPts = null;
       floatingStart = null;
       last = null;
       return;
     }
     if (tool === 'cursor') {
-      drawing = false;
       floatingStart = null;
       last = null;
       return;
     }
     if (tool === 'text') {
-      drawing = false;
       if (!cancelled && textOrigin) openTextMenu(event);
       return;
     }
@@ -2194,7 +3262,6 @@
       ctx.putImageData(shapeSnapshot, 0, 0);
       paintShape(tool, shapeStart.x, shapeStart.y, shapeEnd.x, shapeEnd.y, brushSize, colorFor());
     }
-    drawing = false;
     lineStart = null;
     lineSnapshot = null;
     shapeStart = null;
@@ -2203,6 +3270,7 @@
     panStart = null;
     panSnapshot = null;
     last = null;
+    shadeStrokeSeen = null;
     canvas.classList.remove('cursor-grabbing');
     refreshInUse();
   }
@@ -2211,20 +3279,58 @@
   canvas.addEventListener('pointermove', moveStroke);
   canvas.addEventListener('pointerup', endStroke);
   canvas.addEventListener('pointercancel', endStroke);
+  const cursorReadout = document.getElementById('cursorReadout');
   canvas.addEventListener('mousemove', event => {
-    if (drawing) return;
+    if (drawing) {
+      // Same self-heal as moveStroke, for legacy mouse events.
+      if ((event.buttons & 1) === 0) endStroke(event);
+      return;
+    }
     const pos = canvasPos(event);
     previewAt(pos.x, pos.y);
+    // Read the color under the cursor from the clean snapshot (when a preview
+    // is active) or the live canvas, so the gray tint never skews the index.
+    let idx;
+    if (previewSnapshot) {
+      idx = indexInData(previewSnapshot.data, pos.x, pos.y);
+    } else {
+      idx = indexAt(pos.x, pos.y);
+    }
+    cursorReadout.textContent = '(' + pos.x + ', ' + pos.y + ')  idx ' + idx
+      + (idx === 0 ? '  empty' : '  ' + indexToColor[idx]);
   });
-  canvas.addEventListener('mouseleave', clearPreview);
+  canvas.addEventListener('mouseleave', () => {
+    clearPreview();
+    cursorReadout.textContent = '';
+  });
+
+  // Safety nets: if the browser forcibly drops the pointer capture (or the
+  // window loses focus mid-stroke) without a pointerup, end the stroke.
+  canvas.addEventListener('lostpointercapture', () => { if (drawing) endStroke(); });
+  window.addEventListener('blur', () => { if (drawing) endStroke(); });
 
   // ---- Tool selection ----
   function activateTool(name) {
+    picking = false;
+    pickTarget = -1;
     tool = name;
     document.querySelectorAll('.tool-btn, .tool-icon-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.tool === name));
     canvas.classList.toggle('cursor-grab', tool === 'hand');
     canvas.classList.toggle('cursor-move', tool === 'cursor');
+    const shadeMenu = document.getElementById('shadeMenu');
+    if (shadeMenu) {
+      if (tool === 'shade') {
+        if (!shadeMenu.style.left) {
+          shadeMenu.style.left = Math.max(8, window.innerWidth - 290) + 'px';
+          shadeMenu.style.top = '90px';
+        }
+        shadeMenu.classList.remove('hidden');
+      } else {
+        shadeMenu.classList.add('hidden');
+      }
+    }
+    saveSettings();
   }
 
   document.querySelectorAll('.tool-btn, .tool-icon-btn').forEach(btn => {
@@ -2258,6 +3364,7 @@
       textScaleSlider.value = String(Math.max(0.5, Math.min(5, font.scale)));
     }
     updateTextPreview();
+    saveSettings();
   });
   const textSpacingSlider = document.getElementById('textSpacingSlider');
   const textSpacingNum = document.getElementById('textSpacingNum');
@@ -2313,6 +3420,7 @@
     textAngleSlider.value = Math.max(0, Math.min(360, parseFloat(textAngleNum.value)));
     updateTextPreview();
   });
+  document.getElementById('textMenu').addEventListener('input', saveSettings);
 
   // ---- Text menu dragging ----
   // The grip in the menu's top-right corner lets the user move the toolbox
@@ -2334,6 +3442,24 @@
   });
   textMenuDrag.addEventListener('pointerup', () => { textMenuDragStart = null; });
   textMenuDrag.addEventListener('pointercancel', () => { textMenuDragStart = null; });
+
+  // ---- Shading menu dragging ----
+  const shadeMenuEl = document.getElementById('shadeMenu');
+  const shadeMenuDrag = document.getElementById('shadeMenuDrag');
+  let shadeMenuDragStart = null;
+  shadeMenuDrag.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const r = shadeMenuEl.getBoundingClientRect();
+    shadeMenuDragStart = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    shadeMenuDrag.setPointerCapture(e.pointerId);
+  });
+  shadeMenuDrag.addEventListener('pointermove', e => {
+    if (!shadeMenuDragStart) return;
+    shadeMenuEl.style.left = Math.max(4, e.clientX - shadeMenuDragStart.dx) + 'px';
+    shadeMenuEl.style.top = Math.max(4, e.clientY - shadeMenuDragStart.dy) + 'px';
+  });
+  shadeMenuDrag.addEventListener('pointerup', () => { shadeMenuDragStart = null; });
+  shadeMenuDrag.addEventListener('pointercancel', () => { shadeMenuDragStart = null; });
 
   // ---- Text origin line drag ----
   // The line marks the left edge of where the text starts; drag it to
@@ -2394,6 +3520,7 @@
     brushType = id;
     brushTypesEl.querySelectorAll('.brush-type-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.brush === id));
+    saveSettings();
   }
 
   BRUSH_TYPES.forEach(type => {
@@ -2414,6 +3541,7 @@
     eraserToggle.classList.toggle('active', erasing);
     eraserToggle.setAttribute('aria-pressed', erasing ? 'true' : 'false');
     status.textContent = erasing ? 'Erase mode on' : '';
+    saveSettings();
   });
 
   // ---- Mirror toggles ----
@@ -2424,6 +3552,7 @@
     btn.classList.toggle('active', value);
     btn.setAttribute('aria-pressed', value ? 'true' : 'false');
     status.textContent = value ? label + ' on' : '';
+    saveSettings();
   }
 
   mirrorVBtn.addEventListener('click', () => {
@@ -2438,13 +3567,26 @@
   // ---- Brush size (slider + editable number) ----
   const sizeSlider = document.getElementById('brushSize');
   const sizeInput = document.getElementById('brushSizeNum');
+  let maxBrush = SIZE;             // hard clamp on brush size
+  let sliderMax = Math.round(SIZE / 4);  // slider range (quarter canvas, scales for walls)
+
+  // Scales the brush size limits with the canvas dimensions, so multi-map
+  // walls (bigger canvases) allow bigger brushes. Step stays 1.
+  function applyBrushLimits() {
+    sizeSlider.max = String(sliderMax);
+    sizeSlider.step = '1';
+    sizeInput.max = String(maxBrush);
+    if (brushSize > maxBrush) setBrushSize(maxBrush);
+  }
 
   function setBrushSize(value) {
-    const v = Math.max(1, Math.min(128, Math.floor(value)));
+    const v = Math.max(1, Math.min(maxBrush, Math.floor(value)));
     brushSize = v;
     sizeInput.value = v;
-    if (v <= 10) sizeSlider.value = v;
+    sizeSlider.value = String(Math.min(v, sliderMax));
+    saveSettings();
   }
+  applyBrushLimits();
 
   sizeSlider.addEventListener('input', () => setBrushSize(parseInt(sizeSlider.value, 10)));
   sizeInput.addEventListener('change', () => setBrushSize(parseInt(sizeInput.value, 10)));
@@ -2703,11 +3845,17 @@
     const checker = 2 * scale;
     canvasBox.style.backgroundSize = checker + 'px ' + checker + 'px';
     canvasBox.style.backgroundPosition = '0 0, ' + scale + 'px ' + scale + 'px';
+    saveSettings();
   }
   zoomSlider.addEventListener('input', () => applyZoom(parseInt(zoomSlider.value, 10)));
   applyZoom(parseInt(zoomSlider.value, 10));
 
   // ---- Ctrl + scroll zoom ----
+  // Zoom is anchored to the pixel under the cursor: after the canvas re-lays
+  // out, the scroll offset is adjusted so the map pixel under the pointer
+  // stays under it. Anchoring needs scroll room, so it kicks in once the
+  // canvas overflows the viewport (while the canvas is auto-centered and
+  // smaller than the window there is nothing to scroll).
   const canvasWrap = document.getElementById('canvasWrap');
   const zoomStep = 50;
 
@@ -2717,8 +3865,8 @@
     const rect = canvas.getBoundingClientRect();
     const xScale = rect.width / WIDTH;
     const yScale = rect.height / HEIGHT;
-    const cx = (event.clientX - rect.left) / xScale;
-    const cy = (event.clientY - rect.top) / yScale;
+    const mx = (event.clientX - rect.left) / xScale;   // map pixel under cursor
+    const my = (event.clientY - rect.top) / yScale;
 
     const current = parseInt(zoomSlider.value, 10);
     const next = Math.max(100, Math.min(1600, current + (event.deltaY < 0 ? zoomStep : -zoomStep)));
@@ -2729,12 +3877,13 @@
     const newRect = canvas.getBoundingClientRect();
     const newXScale = newRect.width / WIDTH;
     const newYScale = newRect.height / HEIGHT;
-    canvasWrap.scrollLeft += (cx * xScale - cx * newXScale) + (rect.left - newRect.left);
-    canvasWrap.scrollTop += (cy * yScale - cy * newYScale) + (rect.top - newRect.top);
+    canvasWrap.scrollLeft += (newRect.left - rect.left) + mx * (newXScale - xScale);
+    canvasWrap.scrollTop += (newRect.top - rect.top) + my * (newYScale - yScale);
   }
 
-  [canvas, canvasFrame, canvasWrap].forEach(el =>
-    el.addEventListener('wheel', onWheelZoom, { passive: false }));
+  // One listener on the scroll container (wheel events bubble up from the
+  // canvas) so each tick zooms exactly one step.
+  canvasWrap.addEventListener('wheel', onWheelZoom, { passive: false });
 
   // ---- Submit ----
   document.getElementById('submitBtn').addEventListener('click', async () => {
@@ -2774,6 +3923,12 @@
     canvas.height = h;
     selectionOverlay.width = w;
     selectionOverlay.height = h;
+    // The backing store was just reset, so any captured preview is stale and
+    // must not be restored over the new canvas.
+    previewSnapshot = null;
+    maxBrush = (w === SIZE && h === SIZE) ? SIZE : Math.max(1, Math.round(Math.max(w, h) / 4));
+    sliderMax = (w === SIZE && h === SIZE) ? Math.round(SIZE / 4) : maxBrush;
+    applyBrushLimits();
     applyZoom(parseInt(zoomSlider.value, 10));
   }
 
@@ -2796,6 +3951,9 @@
       }
     }
     ctx.putImageData(img, 0, 0);
+    // The whole canvas was just replaced; drop any stale preview snapshot so
+    // it can't be restored over (or tint) the freshly loaded content.
+    previewSnapshot = null;
   }
 
   async function loadExistingContent(token) {
@@ -2919,7 +4077,7 @@
       a.download = m ? m[1] : 'map.dat';
       a.click();
       URL.revokeObjectURL(url);
-      status.textContent = 'Downloaded .dat backup';
+      status.textContent = 'Downloaded ' + (a.download.endsWith('.zip') ? 'wall backup' : '.dat backup');
     } catch (err) {
       status.textContent = 'Download failed: ' + err.message;
     } finally {
@@ -2982,6 +4140,7 @@
   selectColor(PALETTE[0].c);
   refreshInUse();
   loadTextFonts();
+  applySettings();
 
   const token = new URLSearchParams(location.search).get('token') || '';
 

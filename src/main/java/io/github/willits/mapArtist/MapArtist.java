@@ -61,6 +61,37 @@ public final class MapArtist extends JavaPlugin {
         return pending;
     }
 
+    private final Map<UUID, PendingWallConversion> pendingWallConversions = new ConcurrentHashMap<>();
+
+    /**
+     * A player's pending wall-conversion request, awaiting chat confirmation.
+     * Stores the detected grid and the anchor frame location so the whole wall
+     * can be opened for editing once the conversion is confirmed.
+     */
+    public record PendingWallConversion(MapWallDetector.Grid grid, Location anchor,
+                                        List<Integer> vanillaMapIds, long expiresAtMillis) {}
+
+    public void setPendingWallConversion(UUID player, MapWallDetector.Grid grid, Location anchor,
+                                         List<Integer> vanillaMapIds) {
+        pendingWallConversions.put(player,
+                new PendingWallConversion(grid, anchor, vanillaMapIds, System.currentTimeMillis() + CONFIRM_TTL_MILLIS));
+    }
+
+    public PendingWallConversion pendingWallConversion(UUID player) {
+        PendingWallConversion pending = pendingWallConversions.get(player);
+        if (pending == null || System.currentTimeMillis() > pending.expiresAtMillis()) {
+            pendingWallConversions.remove(player);
+            return null;
+        }
+        return pending;
+    }
+
+    /** Whether the given map is already a MapArtist drawing map. */
+    public boolean isDrawingMap(int mapId) {
+        MapView view = Bukkit.getMap(mapId);
+        return view != null && view.getRenderers().stream().anyMatch(r -> r instanceof DrawingRenderer);
+    }
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -480,8 +511,7 @@ public final class MapArtist extends JavaPlugin {
     public boolean confirmConversion(Player player) {
         PendingConversion pending = pendingConversion(player.getUniqueId());
         if (pending == null) {
-            player.sendMessage(ChatColor.RED + "You don't have a pending map conversion.");
-            return false;
+            return confirmWallConversion(player);
         }
         pendingConversions.remove(player.getUniqueId());
 
@@ -502,8 +532,37 @@ public final class MapArtist extends JavaPlugin {
         return true;
     }
 
+    /**
+     * Confirms a wall conversion: converts every vanilla map in the pending
+     * grid, then opens the wall editor session. Used by the chat confirmation
+     * flow. The player clicked a frame, not a held map, so no held-map check.
+     */
+    public boolean confirmWallConversion(Player player) {
+        PendingWallConversion pending = pendingWallConversion(player.getUniqueId());
+        if (pending == null) {
+            player.sendMessage(ChatColor.RED + "You don't have a pending map conversion.");
+            return false;
+        }
+        pendingWallConversions.remove(player.getUniqueId());
+        if (paintbrush == null
+                || (!paintbrush.isPaintbrush(player.getInventory().getItemInMainHand())
+                && !paintbrush.isPaintbrush(player.getInventory().getItemInOffHand()))) {
+            player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
+                    + "You need a paintbrush in your hand to draw on a map wall.");
+            return false;
+        }
+        for (int mapId : pending.vanillaMapIds()) {
+            convertMap(mapId);
+        }
+        player.sendMessage(ChatColor.GREEN + "Converted " + pending.vanillaMapIds().size()
+                + " vanilla map(s) in the wall into MapArtist drawing maps.");
+        openWallSession(player, pending.grid(), pending.anchor());
+        return true;
+    }
+
     public void cancelConversion(Player player) {
         pendingConversions.remove(player.getUniqueId());
+        pendingWallConversions.remove(player.getUniqueId());
         player.sendMessage(ChatColor.GRAY + "Map conversion cancelled.");
     }
 

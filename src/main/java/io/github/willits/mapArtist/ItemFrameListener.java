@@ -50,18 +50,21 @@ public final class ItemFrameListener implements Listener {
                 } else {
                     // Opening a wall with the brush opens a whole-grid drawing
                     // session. Vanilla maps in the grid are converted into
-                    // drawing maps (same as opening one in hand). Cells locked
-                    // to another player are omitted from the session (with a
-                    // warning) and are not converted or opened for this player.
+                    // drawing maps (same as opening one in hand) but only after
+                    // a chat confirmation, so the conversion is explicit. Cells
+                    // locked to another player are omitted from the session
+                    // (with a warning) and are not converted or opened for this
+                    // player.
                     java.util.List<Integer> locked = new java.util.ArrayList<>();
+                    java.util.List<Integer> editable = new java.util.ArrayList<>();
                     for (int mapId : grid.mapIds()) {
                         if (!plugin.canEdit(mapId, player.getUniqueId())) {
                             locked.add(mapId);
+                        } else {
+                            editable.add(mapId);
                         }
                     }
-                    plugin.logEdits(player.getUniqueId(), grid.mapIds().stream()
-                            .filter(id -> plugin.canEdit(id, player.getUniqueId()))
-                            .toList());
+                    plugin.logEdits(player.getUniqueId(), editable);
                     if (!locked.isEmpty()) {
                         player.sendMessage(ChatColor.GOLD + "MapArtist: " + ChatColor.RED
                                 + "Skipped locked map(s): #" + String.join(", ",
@@ -72,7 +75,14 @@ public final class ItemFrameListener implements Listener {
                                 + "Warning: the frames have mixed rotations. Align them (map-north up) before editing. (you may want to break&replace them)");
                     }
                     highlightWall(frame.getWorld(), grid);
-                    plugin.openWallSession(player, grid, frame.getLocation());
+                    java.util.List<Integer> vanilla = editable.stream()
+                            .filter(id -> !plugin.isDrawingMap(id)).toList();
+                    if (vanilla.isEmpty()) {
+                        plugin.openWallSession(player, grid, frame.getLocation());
+                    } else {
+                        plugin.setPendingWallConversion(player.getUniqueId(), grid, frame.getLocation(), vanilla);
+                        MapInteractListener.sendWallConversionPrompt(player, vanilla);
+                    }
                 }
                 event.setCancelled(true);
             } else {
