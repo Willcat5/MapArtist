@@ -33,16 +33,17 @@ require-holding-to-submit: true
 # megabytes. Not too required, but moreso a safety measure type of thing.
 max-upload-size-megabytes: 10
 
-# whether the map item itself is protected from destruction: fire, lava, cactus, explosions,
+# Whether the map item itself is protected from destruction: fire, lava, cactus, explosions,
 # and other item-deleting blocks. Sort of how netherite survives lava, but for
 # MapArtist maps. Applies while the map is a dropped item entity.
 map-protection-itemdestruction: true
 
-# Prevent players from breaking item frames that hold LOCKED MapArtist maps by
-# damaging them. The map's owner (and admins) can still break their own locked
-# map out of the frame. NOTE: this only protects the item frame itself; the
-# block behind the frame is not affected in any way.
-map-protection-anti-break-when-locked: false
+# Item-frame "resistance" for LOCKED MapArtist maps: a player must hit the
+# frame this many times within one second before it breaks. No one bypasses
+# it, not even the owner or admins. Set to -1 to make locked frames
+# unbreakable, or 0 to disable the protection entirely. NOTE: this only
+# protects the item frame itself; the block behind the frame is not affected.
+map-protection-break-resistance: 3
 
 # Write a readable log of every drawing edit. Each line records the player, the
 # UTC timestamp, and the map ID(s) edited (multi-map walls are logged in a
@@ -61,6 +62,11 @@ draft-retention-days: 21
 # Hide the item frame border when a custom MapArtist map is placed in it.
 # The frame becomes visible again when the map is swapped out or broken out.
 invisible-item-frames: true
+
+# When using the drop-copy trick (drop an empty map next to a drawn map to
+# duplicate it), carry the source map's lock over to the new copy. When false,
+# the copy starts unlocked regardless of the source.
+copy-inherits-lock: false
 
 # Disable cartography tables. The plugin replaces map making, and vanilla map
 # locking/expansion could break drawing maps.

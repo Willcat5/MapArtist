@@ -68,6 +68,13 @@ public final class MapCopyListener implements Listener {
         plugin.saveDrawing(newId, copy);
         plugin.attachRenderer(newView);
 
+        // Optionally carry the source map's lock (owner) over to the copy.
+        MapLockStore locks = plugin.getLockStore();
+        if (locks != null && locks.isLocked(sourceId)
+                && plugin.getConfig().getBoolean("copy-inherits-lock", false)) {
+            locks.lock(newId, locks.ownerOf(sourceId), event.getPlayer().getUniqueId());
+        }
+
         ItemStack newItem = new ItemStack(Material.FILLED_MAP);
         MapMeta newMeta = (MapMeta) newItem.getItemMeta();
         newMeta.setMapId(newId);

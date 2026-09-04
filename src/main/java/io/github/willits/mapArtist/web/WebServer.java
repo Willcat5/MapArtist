@@ -416,6 +416,14 @@ public final class WebServer {
                     + " blocks of the map wall to submit changes\"}");
             return;
         }
+        // Re-check locks at submit time: a cell may have been locked by someone
+        // else since the session was opened, and we must not write to it.
+        int lockedId = lockedCellIn(grid, session.player());
+        if (lockedId >= 0) {
+            respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Map #" + lockedId
+                    + " in this wall is locked and cannot be edited.\"}");
+            return;
+        }
         TokenManager.Session consumed = plugin.getTokenManager().consume(token);
         if (consumed == null) {
             respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Session expired\"}");
@@ -506,6 +514,16 @@ public final class WebServer {
         double dy = loc.getY() - grid.centerY();
         double dz = loc.getZ() - grid.centerZ();
         return (dx * dx + dy * dy + dz * dz) <= (double) radius * radius;
+    }
+
+    /** First map id in the grid the player may no longer edit, or -1 if all clear. */
+    private int lockedCellIn(TokenManager.GridSession grid, UUID playerId) {
+        for (TokenManager.Cell cell : grid.cells()) {
+            if (!plugin.canEdit(cell.mapId(), playerId)) {
+                return cell.mapId();
+            }
+        }
+        return -1;
     }
 
     /**
@@ -764,6 +782,14 @@ public final class WebServer {
      */
     private void handleWallImport(HttpExchange exchange, TokenManager.Session session) throws IOException {
         TokenManager.GridSession grid = session.grid();
+        // Never overwrite a cell that has become locked since the session was
+        // opened.
+        int lockedId = lockedCellIn(grid, session.player());
+        if (lockedId >= 0) {
+            respondJson(exchange, 403, "{\"status\":\"error\",\"message\":\"Map #" + lockedId
+                    + " in this wall is locked and cannot be edited.\"}");
+            return;
+        }
         byte[] zipBytes = readBody(exchange);
         java.util.Map<String, byte[]> entries = new java.util.HashMap<>();
         try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
