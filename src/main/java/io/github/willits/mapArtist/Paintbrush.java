@@ -11,9 +11,9 @@ import java.lang.reflect.Method;
 
 /**
  * The MapArtist paintbrush. Required in the player's off hand to open a map
- * drawing session, or in either hand to interact with map walls. All its
- * properties (base item, name, item model, custom model data) are configurable
- * so servers can reskin it and avoid clashing with other plugins' models.
+ * drawing session, or in either hand to interact with map walls. Its base
+ * item, display name and item model are all configurable. A brush is
+ * identified by its base item, display name and item model.
  */
 public final class Paintbrush {
 
@@ -22,7 +22,6 @@ public final class Paintbrush {
     private final Material baseMaterial;
     private final String displayName;
     private final NamespacedKey itemModel;
-    private final int customModelData;
 
     public Paintbrush(ConfigurationSection section) {
         String rawName = section == null ? null : section.getString("name");
@@ -34,7 +33,6 @@ public final class Paintbrush {
         this.baseMaterial = parseMaterial(rawBase);
         this.displayName = ChatColor.translateAlternateColorCodes('&', rawName);
         this.itemModel = parseKey(rawModel == null ? DEFAULT_BRUSH_MODEL : rawModel);
-        this.customModelData = section == null ? 1 : section.getInt("custom-model-data", 1);
     }
 
     private static Material parseMaterial(String name) {
@@ -63,9 +61,6 @@ public final class Paintbrush {
         if (itemModel != null) {
             meta.setItemModel(itemModel);
         }
-        if (customModelData > 0) {
-            meta.setCustomModelData(customModelData);
-        }
         brush.setItemMeta(meta);
         brush.setAmount(1);
         setMaxStackSize(brush, 1);
@@ -80,13 +75,10 @@ public final class Paintbrush {
         if (meta == null) {
             return false;
         }
-        if (customModelData > 0 && meta.getCustomModelData() != customModelData) {
+        if (itemModel != null && (!meta.hasItemModel() || !itemModel.equals(meta.getItemModel()))) {
             return false;
         }
-        if (itemModel != null && meta.hasItemModel() && !itemModel.equals(meta.getItemModel())) {
-            return false;
-        }
-        return true;
+        return displayName.equals(meta.getDisplayName());
     }
 
     /**

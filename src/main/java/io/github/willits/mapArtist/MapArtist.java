@@ -34,6 +34,7 @@ public final class MapArtist extends JavaPlugin {
     private Paintbrush paintbrush;
     private String host;
     private int port;
+    private String webUrl;
     private File drawingsDir;
     private File draftsDir;
 
@@ -98,6 +99,7 @@ public final class MapArtist extends JavaPlugin {
 
         host = getConfig().getString("host", "localhost");
         port = getConfig().getInt("port", 8080);
+        webUrl = configuredWebUrl();
         long ttlSeconds = getConfig().getLong("token-ttl-seconds", 1209600);
         paintbrush = new Paintbrush(getConfig().getConfigurationSection("paintbrush"));
 
@@ -177,6 +179,7 @@ public final class MapArtist extends JavaPlugin {
         reloadConfig();
         host = getConfig().getString("host", "localhost");
         port = getConfig().getInt("port", 8080);
+        webUrl = configuredWebUrl();
         long ttlSeconds = getConfig().getLong("token-ttl-seconds", 1209600);
         paintbrush = new Paintbrush(getConfig().getConfigurationSection("paintbrush"));
         tokenManager = new TokenManager(ttlSeconds * 1000,
@@ -342,7 +345,7 @@ public final class MapArtist extends JavaPlugin {
                     + "You have reached the drawing link limit of " + limit + " per minute. Try again shortly.");
             return false;
         }
-        String url = "http://" + host + ":" + port + "/draw?token=" + token;
+        String url = editorUrl(token);
         MapInteractListener.sendLink(player, url);
         convertMap(mapId);
         return true;
@@ -394,9 +397,41 @@ public final class MapArtist extends JavaPlugin {
         for (int mapId : editable) {
             convertMap(mapId);
         }
-        String url = "http://" + host + ":" + port + "/draw?token=" + token;
+        String url = editorUrl(token);
         MapInteractListener.sendLink(player, url);
         return true;
+    }
+
+    /**
+     * Builds the public editor URL for a session token. When the optional
+     * {@code web-url} config is set it is used verbatim (useful behind an
+     * HTTPS reverse proxy / tunnel where the public scheme/host/port differ
+     * from what the plugin binds); otherwise falls back to
+     * {@code http://host:port}.
+     */
+    private String editorUrl(String token) {
+        String base = webUrl;
+        if (base == null) {
+            base = "http://" + host + ":" + port;
+        }
+        return base + "/draw?token=" + token;
+    }
+
+    private String configuredWebUrl() {
+        String value = getConfig().getString("web-url", "");
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (!trimmed.isEmpty() && !trimmed.contains("://")) {
+            // Scheme-less values (e.g. "map.example.com") are almost always an
+            // HTTPS tunnel/proxy; assume https so the chat link stays valid.
+            trimmed = "https://" + trimmed;
+        }
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     public Paintbrush getPaintbrush() {

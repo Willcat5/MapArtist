@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.github.willits.mapArtist.DrawingStore;
+import io.github.willits.mapArtist.MapColors;
 import io.github.willits.mapArtist.MapLockStore;
 import io.github.willits.mapArtist.TokenManager;
 import io.github.willits.mapArtist.MapArtist;
@@ -14,7 +15,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.MapMeta;
-import org.bukkit.map.MapPalette;
 
 import java.awt.Color;
 import java.awt.Graphics2D;
@@ -934,7 +934,7 @@ public final class WebServer {
         for (int y = 0; y < 128; y++) {
             for (int x = 0; x < 128; x++) {
                 int argb = scaled.getRGB(x, y);
-                pixels[y][x] = MapPalette.matchColor(new Color(argb, true));
+                pixels[y][x] = MapColors.matchColor(argb);
             }
         }
         return pixels;
@@ -946,7 +946,7 @@ public final class WebServer {
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 int argb = image.getRGB(x, y);
-                pixels[y][x] = MapPalette.matchColor(new Color(argb, true));
+                pixels[y][x] = MapColors.matchColor(argb);
             }
         }
         return pixels;
@@ -1000,7 +1000,7 @@ public final class WebServer {
                 sb.append(',');
             }
             sb.append("{\"i\":").append(i)
-                    .append(",\"c\":\"").append(toHex(MapPalette.getColor((byte) i))).append("\"}");
+                    .append(",\"c\":\"").append(toHex(MapColors.color((byte) i))).append("\"}");
         }
         return sb.append(']').toString();
     }

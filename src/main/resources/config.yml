@@ -4,6 +4,14 @@ host: localhost
 # Port the drawing web server listens on. Must be reachable from the browser.
 port: 8080
 
+# Optional: full public base URL for the web editor, used verbatim in drawing
+# links instead of "http://<host>:<port>". Set this when the editor is reached
+# through an HTTPS reverse proxy or tunnel (e.g. https://map.example.com),
+# where the public scheme/host/port differ from what the plugin binds. Leave
+# empty to fall back to http://<host>:<port>. A scheme is assumed: if you write
+# just "map.example.com", "https://" is added automatically.
+web-url: ""
+
 # How long a drawing session link stays valid, in seconds.
 # Default is 14 days (1209600).
 token-ttl-seconds: 1209600
@@ -80,7 +88,7 @@ vanilla-mapping: true
 # Paintbrush item used to open map drawing sessions (off-hand) and to interact
 # with map walls (either hand). Customize these if your resource pack uses a
 # different model, or to avoid clashing with other plugins that use the same
-# base item + custom model data.
+# base item + item model.
 paintbrush:
   # Base item the brush is made from.
   base-item: STICK
@@ -88,5 +96,3 @@ paintbrush:
   name: "&6&lPaintbrush"
   # item_model component assigned to the brush (namespace:path).
   item-model: "minecraft:brush"
-  # custom_model_data value used alongside the base item.
-  custom-model-data: 1
